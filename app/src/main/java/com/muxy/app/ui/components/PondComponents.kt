@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -103,9 +103,14 @@ fun PochiEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        // Ancho completo y alto fijo: la escena es apaisada (rana + caracol) y
+        // el propio Canvas la centra, así que en pantallas estrechas encoge
+        // sola en vez de desbordar.
         Pochi(
             pose = pose,
-            modifier = Modifier.size(width = 215.dp, height = 215.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp),
         )
         Text(
             text = title,

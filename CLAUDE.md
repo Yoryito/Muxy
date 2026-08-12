@@ -110,15 +110,33 @@ adb push "cancion.wav" /sdcard/Android/data/com.muxy.app.debug/files/music/
 
 ## Pochi
 
-La mascota se llama **Pochi** y lleva un caracol en la cabeza. Está dibujada en Canvas (`ui/components/Pochi.kt`), no como vector estático, porque así se animan las partes por separado.
+La mascota se llama **Pochi** y va acompañada de un caracol que se apoya en el suelo **a su izquierda** (antes lo llevaba en la cabeza; se movió al lado a petición del propietario). Está dibujada en Canvas (`ui/components/Pochi.kt`), no como vector estático, porque así se animan las partes por separado.
 
-Estilo: ilustración suave y pastel, cuerpo con degradado vertical y contorno fino, cara mínima (ojos de punto y boca). **La expresividad la lleva el movimiento, no el detalle del dibujo** — por eso no hace falta más definición en la cara.
+**El dibujo copia una referencia concreta** que dio el propietario: rana kawaii de contorno cerrado. Si algún día hay que retocarlo, el criterio es acercarse más a esa referencia, no reinterpretarla. Sus rasgos, y las proporciones medidas sobre ella (todas relativas al ancho del cuerpo `W`):
+
+| Rasgo | Valor |
+|---|---|
+| alto del cuerpo | 0,87·W — claramente más ancho que alto |
+| radio del bulto del ojo | 0,10·W, centros a ±0,35·W |
+| centro del ojo bajo la coronilla | 0,02·W |
+| centro de la boca bajo la coronilla | 0,067·W, ancho 0,18·W |
+| tripa | ancho 0,50·W, de 0,28·W bajo la coronilla hasta casi el borde de abajo |
+| grosor del contorno | 0,016·W |
+
+Estilo: relleno **plano** (el degradado vertical es casi imperceptible a propósito) y **contorno oscuro y marcado** en un teal apagado emparentado con el `Pond` del tema. **La expresividad la lleva el movimiento, no el detalle del dibujo** — por eso no hace falta más definición en la cara.
 
 Reglas que costó descubrir y conviene no romper:
 
-- **Lo que la hace leer como rana y no como una bola** son tres cosas juntas: los ojos montados como bultos que sobresalen por encima de la cabeza, el cuerpo más ancho que alto, y la boca ancha. Sin los bultos vuelve a parecer una pelota con ojos.
-- Cuerpo y bultos se pintan como **una sola silueta** unida con `PathOperation.Union`. Dibujarlos por separado deja el contorno de cada bulto cruzando la cabeza.
-- Respetar el aire entre la boca y la tripa, y mantener los mofletes dentro del contorno: ahí es donde los detalles se pisaban.
-- Las patas van **abiertas y asomando por fuera** del cuerpo; metidas dentro no aportan nada a la silueta. Unos bracitos a media altura se leen como orejas — se probó y se quitaron.
-- Las animaciones (flotar, respirar, parpadear, y el balanceo propio del caracol) usan **periodos distintos a propósito** para que nunca caigan en fase y el bucle no se note.
-- Las dos poses comparten el mismo cuerpo, para que sea reconociblemente la misma rana.
+- **Lo que la hace leer como rana y no como una bola** son tres cosas juntas: los ojos montados como bultos que sobresalen por encima de la cabeza, el cuerpo más ancho que alto, y la boca ondulada. Sin los bultos vuelve a parecer una pelota con ojos.
+- El bulto tiene que **solaparse con la coronilla en torno a un tercio de su diámetro**. Con menos, la muesca se abre y los ojos parecen dos círculos posados encima en vez de montados.
+- Cuerpo, bultos y patas se pintan como **una sola silueta** unida con `PathOperation.Union`. Dibujarlos por separado deja el contorno de cada bulto cruzando la cabeza y el de cada pata cruzando la tripa.
+- El cuerpo son **curvas a mano, no un rectángulo redondeado**: hacen falta a la vez costados abombados y un fondo ancho y plano, y un radio único no da las dos cosas.
+- La **tripa termina en base ancha**, casi rozando el contorno de abajo. Rematada en punta de huevo, la masa clara acaba demasiado arriba y sobra verde en la mitad inferior. Rematada plana del todo parece un babero.
+- El **ojo es anillo amarillo + pupila grande y plana, sin brillo blanco**: el brillo rompe el estilo plano del resto.
+- Las patas son **lóbulos que asoman por el borde de abajo**, cada uno con un pliegue que arranca del contorno y sube escorándose hacia fuera. Sin el pliegue son dos bultos sueltos; demasiado fino o largo, parece un arañazo. (Antes eran óvalos abiertos a los lados; la referencia las lleva recogidas.)
+- **Sin coloretes**: la referencia no los tiene y añadirlos vuelve a alejar el dibujo de ella.
+- El párpado del parpadeo se pinta con **el mismo `Brush` del cuerpo** (`bodyBrush()`), no con un color fijo, para que no se vea un escalón dentro del bulto.
+- El caracol se dibuja **fuera de la escala del respiro** de la rana: compartiéndola parecerían la misma pieza en vez de dos bichos.
+- Las animaciones (flotar, respirar, parpadear, y el vaivén propio del caracol) usan **periodos distintos a propósito** para que nunca caigan en fase y el bucle no se note.
+- El encuadre no es `(0,0)-(DW,DH)` sino el rectángulo `VIEW_*`, que ciñe el dibujo: si no, el aire sobrante encoge la escena al centrarla. La escena es apaisada, así que `PochiEmptyState` la pinta a ancho completo con alto fijo en vez de en una caja cuadrada.
+- Las dos poses comparten el mismo cuerpo, para que sea reconociblemente la misma rana. En `Resting` el nenúfar sostiene a los dos; en `Curious` el junco va a la derecha, lejos del caracol.
