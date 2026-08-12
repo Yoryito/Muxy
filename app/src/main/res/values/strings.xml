@@ -5,6 +5,29 @@
     <string name="nav_library">Librería</string>
     <string name="nav_playlists">Playlists</string>
     <string name="nav_search">Buscar</string>
+    <string name="nav_settings">Ajustes</string>
+
+    <string name="settings_about_body">Tu música, descargada y guardada en el móvil.</string>
+    <string name="settings_version">Versión %1$s</string>
+
+    <string name="settings_updates">Actualizaciones</string>
+    <string name="settings_auto_check">Buscar al abrir la app</string>
+    <string name="settings_auto_check_body">Muxy mira si hay una versión nueva y avisa antes de instalar nada.</string>
+    <string name="settings_check_now">Buscar ahora</string>
+    <string name="settings_install_update">Actualizar</string>
+    <string name="settings_checking">Mirando si hay una versión nueva…</string>
+    <string name="settings_up_to_date">Ya tienes la última versión.</string>
+    <string name="settings_check_failed">No se ha podido comprobar. Revisa la conexión.</string>
+    <string name="settings_update_available">La versión %1$s ya está lista.</string>
+    <string name="settings_downloading">Descargando la actualización…</string>
+    <string name="settings_download_failed">No se ha podido descargar. Inténtalo otra vez.</string>
+    <string name="settings_installing">Termina la instalación en la pantalla del sistema.</string>
+
+    <string name="update_available_title">Hay una Muxy nueva</string>
+    <string name="update_available_body">La versión %1$s ya se puede instalar (%2$s).</string>
+    <string name="update_later">Ahora no</string>
+    <string name="update_hide">Ocultar</string>
+    <string name="update_permission_needed">Android necesita tu permiso para que Muxy pueda instalarse sola. Actívalo y vuelve atrás.</string>
 
     <string name="library_empty_title">Tu estanque está tranquilo</string>
     <string name="library_empty_body">Busca una canción y Pochi te la traerá aquí.</string>

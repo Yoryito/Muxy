@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Solo se comparte la carpeta donde cae el APK de la actualización. El
+    instalador del sistema corre en otro proceso y no puede leer la caché de la
+    app, así que el archivo tiene que salir como content:// desde aquí.
+-->
+<paths>
+    <cache-path name="updates" path="updates/" />
+</paths>

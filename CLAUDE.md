@@ -19,7 +19,7 @@ Reproductor y librería de música local para Android. El usuario busca una canc
 | Almacenamiento | **Room** + archivos en almacenamiento específico de la app | App de 1-2 usuarios, sin nube ni sincronización. No hace falta nada más. |
 | Descargas | **WorkManager** con worker en primer plano | Sobreviven a que la app pase a segundo plano. |
 | DI | Contenedor manual (`AppContainer`), **sin Hilt** | La app es pequeña; Hilt añadiría procesamiento de anotaciones sin beneficio real. |
-| Actualizaciones | `UpdateChecker` contra **GitHub Releases** | Sin Play Store no hay auto-update. Compara `versionCode` al arrancar y ofrece instalar. Android no permite auto-instalación silenciosa sin root/device-owner, así que siempre requiere confirmación del usuario. |
+| Actualizaciones | `UpdateChecker` contra **GitHub Releases** | Sin Play Store no hay auto-update. Compara la versión de la última release al arrancar y ofrece instalar el APK. Android no permite auto-instalación silenciosa sin root/device-owner, así que siempre requiere confirmación del usuario. |
 
 ## Dirección visual
 
@@ -79,6 +79,12 @@ adb shell am start -n com.muxy.app.debug/com.muxy.app.MainActivity
 adb exec-out screencap -p > captura.png
 ```
 
+Para publicar una versión (compila, commitea, etiqueta y sube la release con el APK):
+
+```bash
+scripts/release.sh 0.1.11 "Lo que cambia, contado para quien lo lee en el móvil"
+```
+
 Para capturas usar `adb exec-out`, no `adb shell screencap` con una ruta: Git Bash convierte `/sdcard/...` a una ruta de Windows y el comando falla de forma confusa. Lo mismo con cualquier ruta del dispositivo — hay que envolverla con `MSYS_NO_PATHCONV=1`, o usar PowerShell para los `adb push`.
 
 ## Puntos frágiles conocidos
@@ -120,13 +126,35 @@ El fallo del punto 3 es invisible desde la app, así que **no vale con reproduci
 
 Para depurar el etiquetado: eAlvaTag registra la excepción real con ealvalog y en Android no sale por ningún lado, así que el camino rápido es sacar el `.m4a` con `adb pull` y reproducir el fallo en la JVM de escritorio con `Loggers.INSTANCE.setFactory(StdoutLoggerFactory.INSTANCE)`, que sí imprime la causa y la rama que eligió.
 
+## Cómo se distribuye y se actualiza
+
+La app no pasa por ninguna tienda: se instala desde el APK de una **GitHub Release** y a partir de ahí se actualiza sola. Todo el proceso está en `scripts/release.sh`, que sube la versión, compila firmado, commitea, etiqueta y publica la release con el APK colgado. Publicar es lo que hace que el móvil de enfrente se entere: la app mira `releases/latest` al abrirse.
+
+**La clave de firma es lo más frágil de todo esto.** Android se niega a actualizar una app si la firma cambia, así que todas las versiones tienen que ir firmadas con el mismo `muxy-release.keystore`. Si se pierde ese archivo (o su contraseña, en `keystore.properties`), la única salida es que cada usuario desinstale y vuelva a instalar, perdiendo su librería. Los dos archivos están en `.gitignore` —el repo es público— y **conviene tener una copia fuera de este disco**. Sin ellos el build sigue funcionando: sale un APK sin firmar, que compila pero no se instala.
+
+**La versión vive en una sola línea**, `val muxyVersionName` en `app/build.gradle.kts`, y el `versionCode` se calcula de ella (`0.1.10` → `110`). Contar releases a mano acabaría repitiendo un número, y un `versionCode` repetido hace que Android rechace la actualización sin explicar por qué.
+
+Detalles del camino de actualización que conviene no deshacer:
+
+- **La comparación de versiones es numérica, tramo a tramo** (`isNewer`). Comparar las cadenas tal cual pondría `0.1.9` por delante de `0.1.10`, que es justo el salto que toca.
+- Se usa `releases/latest`, que **deja fuera borradores y prereleases**: publicar un borrador no debe avisar a nadie. Y una release sin APK se ignora, para no ofrecer una actualización que al tocarla no tiene qué descargar.
+- La API va **sin token** porque el repositorio es público (60 peticiones por hora y por IP, de sobra para una comprobación al abrir). Meter un token aquí sería publicarlo en un APK que se reparte.
+- El APK cae en `cacheDir/updates` y sale hacia el instalador **como `content://` por un `FileProvider`**: el instalador es otro proceso y no puede leer la caché de la app. La autoridad lleva el `applicationId` para que debug y release puedan convivir.
+- Instalar exige que el usuario haya concedido "instalar apps desconocidas" a Muxy. **Se comprueba antes de descargar** (`canInstall`), porque bajar 20 MB para chocar al final con un permiso es tiempo tirado. Al volver de esos ajustes solo se reintenta si el permiso está: reintentar a ciegas deja al usuario rebotando entre pantallas.
+- La comprobación automática es **una por arranque**, no una por composición: el `LaunchedEffect` que la lanza vuelve a correr al girar la pantalla.
+- **El aviso emergente vive en `MainActivity`, no en la pantalla de ajustes**, para que salga esté donde esté el usuario. La comprobación a mano no lo abre: quien ha ido a buscarla ya está mirando la respuesta en ajustes.
+
+**Ojo con probar esto en debug:** el build de debug es otro `applicationId` (`com.muxy.app.debug`) y va sin firmar con la clave de release, así que puede comprobar y descargar, pero lo que instale será una app aparte. El camino de actualización de verdad solo se prueba sobre un APK de release instalado.
+
 ## Estado actual
 
-Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · 4 pipeline de descarga ✅ · **5 pulido ✅** · 6 auto-actualización · 7 (opcional) Spotify.
+Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · 4 pipeline de descarga ✅ · 5 pulido ✅ · **6 ajustes + auto-actualización ✅** · 7 (opcional) Spotify.
 
 Cada fase termina con prueba manual en el móvil real por USB antes de pasar a la siguiente. Móvil de pruebas: Samsung Galaxy A55 (`SM_A556B`).
 
-Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, búsqueda real en YouTube, el pipeline completo de descarga (resolver → bajar → convertir a M4A → etiquetar con carátula → dar de alta), con avance por etapas en la fila de resultados, notificación de progreso y cancelación, el reproductor a pantalla completa, la carátula en la notificación del sistema, filtrar y ordenar la librería, borrar canciones y las playlists.
+Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, búsqueda real en YouTube, el pipeline completo de descarga (resolver → bajar → convertir a M4A → etiquetar con carátula → dar de alta), con avance por etapas en la fila de resultados, notificación de progreso y cancelación, el reproductor a pantalla completa, la carátula en la notificación del sistema, filtrar y ordenar la librería, borrar canciones, las playlists, y la pestaña de ajustes con la actualización desde GitHub Releases.
+
+La pestaña de **Ajustes está a medias a propósito**: de momento solo lleva "Acerca de" y "Actualizaciones", que era lo que hacía falta para repartir la app. Es el sitio donde irán los ajustes que vayan saliendo.
 
 La fase 5 se hizo en dos tandas, acotadas las dos por el propietario: primero solo el reproductor a pantalla completa, y después la carátula de la notificación, el borrado, el filtro/orden de la librería y las playlists — que las pidió él y no estaban en el plan original.
 
@@ -157,9 +185,9 @@ En la librería, el filtro y el orden se resuelven **en Kotlin sobre el flujo de
 - El orden alfabético va con `Collator`, no con `compareBy`: comparar cadenas por code point deja la "Ñ" y todo lo acentuado detrás de la "Z".
 - **La cola es lo que se está viendo**, no la librería entera: si hay un filtro puesto, se reproduce lo filtrado.
 
-**Repositorio remoto:** https://github.com/Yoryito/Muxy — **público**, rama por defecto `master`. Se eligió público a propósito (el plan original asumía privado). La fase 6 distribuirá el APK desde sus GitHub Releases, que al ser públicas se pueden descargar sin token.
+**Repositorio remoto:** https://github.com/Yoryito/Muxy — **público**, rama por defecto `master`. Se eligió público a propósito (el plan original asumía privado). El APK se reparte desde sus GitHub Releases, que al ser públicas se pueden descargar sin token.
 
-Al ser público, todo lo que se commitee es visible: este mismo CLAUDE.md incluido. No meter nunca el keystore de release ni `local.properties` (ya están en `.gitignore`).
+Al ser público, todo lo que se commitee es visible: este mismo CLAUDE.md incluido. No meter nunca el keystore de release, `keystore.properties` ni `local.properties` (ya están en `.gitignore`).
 
 ### Cómo está montada la descarga
 

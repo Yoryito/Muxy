@@ -8,6 +8,9 @@ import com.muxy.app.download.AudioTranscoder
 import com.muxy.app.download.DownloadQueue
 import com.muxy.app.download.HttpFetcher
 import com.muxy.app.playback.PlayerConnection
+import com.muxy.app.update.UpdateChecker
+import com.muxy.app.update.UpdateInstaller
+import com.muxy.app.update.UpdatePreferences
 import com.muxy.app.youtube.NewPipeAudioResolver
 import com.muxy.app.youtube.YoutubeAudioResolver
 import okhttp3.OkHttpClient
@@ -52,4 +55,10 @@ class AppContainer(context: Context) {
     val transcoder: AudioTranscoder by lazy { AudioTranscoder(appContext) }
 
     val downloads: DownloadQueue by lazy { DownloadQueue(appContext) }
+
+    val updateChecker: UpdateChecker by lazy { UpdateChecker(httpClient) }
+
+    val updateInstaller: UpdateInstaller by lazy { UpdateInstaller(appContext, httpFetcher) }
+
+    val updatePreferences: UpdatePreferences by lazy { UpdatePreferences(appContext) }
 }

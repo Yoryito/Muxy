@@ -4,8 +4,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -34,6 +37,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,6 +51,10 @@ import com.muxy.app.ui.playlists.PlaylistsScreen
 import com.muxy.app.ui.playlists.PlaylistsViewModel
 import com.muxy.app.ui.search.SearchScreen
 import com.muxy.app.ui.search.SearchViewModel
+import com.muxy.app.ui.settings.SettingsScreen
+import com.muxy.app.ui.settings.SettingsViewModel
+import com.muxy.app.ui.settings.UpdateDialog
+import com.muxy.app.ui.settings.updateOrNull
 import com.muxy.app.ui.theme.MuxyTheme
 
 class MainActivity : ComponentActivity() {
@@ -79,6 +87,13 @@ class MainActivity : ComponentActivity() {
                             container.library,
                         ),
                     ),
+                    settingsViewModel = viewModel(
+                        factory = SettingsViewModel.Factory(
+                            container.updateChecker,
+                            container.updateInstaller,
+                            container.updatePreferences,
+                        ),
+                    ),
                 )
             }
         }
@@ -92,10 +107,38 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Lleva al usuario al ajuste de "instalar apps desconocidas" cuando el
+ * ViewModel avisa de que falta, y le devuelve la respuesta al volver.
+ *
+ * Está aquí y no en la pantalla de ajustes porque el aviso de actualización
+ * puede saltar desde cualquier pestaña, y lanzar un intent necesita el
+ * `ActivityResultRegistry` de la Activity.
+ */
+@Composable
+private fun UpdatePermissionBridge(settingsViewModel: SettingsViewModel) {
+    val context = LocalContext.current
+    val hint = stringResource(R.string.update_permission_needed)
+
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { settingsViewModel.onInstallPermissionResult() }
+
+    LaunchedEffect(Unit) {
+        settingsViewModel.installPermissionRequests.collect {
+            // Aterrizar de golpe en los ajustes de Android sin saber por qué es
+            // desconcertante; el aviso va antes de salir de la app.
+            Toast.makeText(context, hint, Toast.LENGTH_LONG).show()
+            launcher.launch(settingsViewModel.installPermissionIntent())
+        }
+    }
+}
+
 private enum class Destination(val labelRes: Int) {
     Library(R.string.nav_library),
     Playlists(R.string.nav_playlists),
     Search(R.string.nav_search),
+    Settings(R.string.nav_settings),
 }
 
 @Composable
@@ -103,6 +146,7 @@ private fun MuxyApp(
     libraryViewModel: LibraryViewModel,
     playlistsViewModel: PlaylistsViewModel,
     searchViewModel: SearchViewModel,
+    settingsViewModel: SettingsViewModel,
 ) {
     var current by rememberSaveable { mutableStateOf(Destination.Library) }
     var playerOpen by rememberSaveable { mutableStateOf(false) }
@@ -118,7 +162,15 @@ private fun MuxyApp(
     val openPlaylist by playlistsViewModel.openPlaylist.collectAsStateWithLifecycle()
     val openPlaylistSongs by playlistsViewModel.openSongs.collectAsStateWithLifecycle()
 
+    val settings by settingsViewModel.state.collectAsStateWithLifecycle()
+
     val defaultPlaylistName = stringResource(R.string.playlist_default_name)
+
+    // Comprobar si hay versión nueva es lo primero que hace la app al abrirse; el
+    // ViewModel se encarga de que sea una sola vez por arranque.
+    LaunchedEffect(Unit) { settingsViewModel.checkOnStart() }
+
+    UpdatePermissionBridge(settingsViewModel)
 
     // Si la cola se vacía, el reproductor se queda sin nada que enseñar.
     LaunchedEffect(playback.songId) {
@@ -157,6 +209,7 @@ private fun MuxyApp(
                                             Destination.Library -> Icons.Rounded.LibraryMusic
                                             Destination.Playlists -> Icons.AutoMirrored.Rounded.QueueMusic
                                             Destination.Search -> Icons.Rounded.Search
+                                            Destination.Settings -> Icons.Rounded.Settings
                                         },
                                         contentDescription = null,
                                     )
@@ -233,6 +286,27 @@ private fun MuxyApp(
                     onDownload = searchViewModel::onDownloadRequested,
                     onCancelDownload = searchViewModel::onCancelRequested,
                     contentPadding = innerPadding,
+                )
+
+                Destination.Settings -> SettingsScreen(
+                    state = settings,
+                    onToggleAutoCheck = settingsViewModel::setAutoCheck,
+                    onCheckNow = settingsViewModel::checkNow,
+                    onUpdate = settingsViewModel::startUpdate,
+                    contentPadding = innerPadding,
+                )
+            }
+        }
+
+        // El aviso de versión nueva no pertenece a ninguna pestaña: sale donde
+        // esté el usuario, y por encima del reproductor si lo tiene abierto.
+        if (settings.promptVisible) {
+            settings.update.updateOrNull()?.let { update ->
+                UpdateDialog(
+                    update = update,
+                    state = settings.update,
+                    onUpdate = settingsViewModel::startUpdate,
+                    onDismiss = settingsViewModel::dismissPrompt,
                 )
             }
         }

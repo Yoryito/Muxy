@@ -1,9 +1,34 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+}
+
+// La versión vive aquí y en ningún sitio más: `scripts/release.sh` la reescribe
+// y el `versionCode` sale de ella, para que no puedan discrepar.
+val muxyVersionName = "0.1.10"
+
+/**
+ * 0.1.10 -> 110. Multiplicar por 100 cada tramo deja sitio para 99 versiones de
+ * parche; contar releases a mano acabaría repitiendo un número, y un versionCode
+ * repetido hace que Android se niegue a actualizar sin decir por qué.
+ */
+val muxyVersionCode = muxyVersionName.split(".").let { (major, minor, patch) ->
+    major.toInt() * 10_000 + minor.toInt() * 100 + patch.toInt()
+}
+
+/**
+ * Credenciales de firma. Están fuera del repositorio (el repo es público), así
+ * que si no aparecen el build sigue funcionando: solo sale un APK de release sin
+ * firmar, que sirve para compilar pero no para instalar.
+ */
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
 }
 
 android {
@@ -14,8 +39,23 @@ android {
         applicationId = "com.muxy.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = muxyVersionCode
+        versionName = muxyVersionName
+
+        // De dónde se bajan las actualizaciones. En el código no hay ninguna URL
+        // suelta: si algún día cambia el repositorio, se cambia aquí.
+        buildConfigField("String", "UPDATE_REPO", "\"Yoryito/Muxy\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystoreProperties.isNotEmpty()) {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -23,6 +63,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release").takeIf {
+                keystoreProperties.isNotEmpty()
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
