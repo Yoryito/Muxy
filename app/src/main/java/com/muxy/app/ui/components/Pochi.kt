@@ -12,9 +12,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -38,9 +39,13 @@ import kotlin.random.Random
  * Pochi, la ranita de Muxy, con su caracol.
  *
  * Estilo de ilustración suave: cuerpo pastel con degradado, contorno fino y
- * cara mínima (dos puntos y una boca pequeña). La expresividad viene del
- * movimiento, no del detalle — por eso se dibuja en Canvas y no como vector
- * estático: respira, parpadea y flota con ritmos distintos que nunca coinciden.
+ * cara mínima. La expresividad viene del movimiento, no del detalle — por eso
+ * se dibuja en Canvas y no como vector estático: respira, parpadea y flota con
+ * ritmos distintos que nunca coinciden.
+ *
+ * Lo que hace que se lea como rana y no como una bola son tres cosas: los ojos
+ * montados como bultos que sobresalen por encima de la cabeza, el cuerpo más
+ * ancho que alto, y la boca ancha. Sin los bultos vuelve a parecer una pelota.
  */
 enum class PochiPose {
     /** En su nenúfar, tranquila. Librería vacía. */
@@ -51,29 +56,32 @@ enum class PochiPose {
 }
 
 // Espacio de diseño; todo se define aquí y luego se escala al tamaño real.
-private const val DW = 200f
+private const val DW = 220f
 private const val DH = 200f
+private const val CX = 110f
 
-// Cuerpo: un rectángulo con radios enormes, que da la silueta de blob
-// regordete mejor que una elipse (más ancho abajo, hombros suaves).
-private const val BODY_L = 48f
-private const val BODY_T = 74f
-private const val BODY_R = 152f
-private const val BODY_B = 176f
-private const val BODY_RADIUS = 50f
+// Cuerpo: claramente más ancho que alto.
+private const val BODY_L = 44f
+private const val BODY_T = 86f
+private const val BODY_R = 176f
+private const val BODY_B = 180f
+private const val BODY_RADIUS = 46f
 
-private const val EYE_Y = 100f
-private const val EYE_L_X = 80f
-private const val EYE_R_X = 120f
-private const val EYE_RX = 4.8f
-private const val EYE_RY = 5.6f
+// Bultos de los ojos: sobresalen por encima del cuerpo. Son la silueta de rana.
+private const val BUMP_R = 18f
+private const val BUMP_CY = 86f
+private const val BUMP_L_CX = 82f
+private const val BUMP_R_CX = 138f
 
-// La boca acaba en y=120 y la tripa empieza en y=128: ese aire es lo que evita
+private const val EYE_RX = 5.2f
+private const val EYE_RY = 6f
+
+// La boca acaba en y=122 y la tripa empieza en y=127: ese aire es lo que evita
 // que la cara se pise con el vientre.
-private const val MOUTH_Y = 114f
-private const val MOUTH_DIP = 120f
-private const val BELLY_CY = 150f
-private const val BELLY_RY = 22f
+private const val MOUTH_Y = 110f
+private const val MOUTH_DIP = 122f
+private const val BELLY_CY = 152f
+private const val BELLY_RY = 25f
 
 private val BodyTop = Color(0xFF9BC47E)
 private val BodyBottom = Color(0xFFDCEFC2)
@@ -155,8 +163,8 @@ private fun DrawScope.drawPochi(
     // leer como suelo y no como parte de la rana.
     drawOval(
         color = WaterShadow.copy(alpha = 0.11f),
-        topLeft = Offset(48f, 172f),
-        size = Size(104f, 14f),
+        topLeft = Offset(BODY_L - 4f, 174f),
+        size = Size(BODY_R - BODY_L + 8f, 14f),
     )
 
     when (pose) {
@@ -167,10 +175,10 @@ private fun DrawScope.drawPochi(
     scale(
         scaleX = 1f + 0.010f * breath,
         scaleY = 1f + 0.022f * breath,
-        pivot = Offset((BODY_L + BODY_R) / 2f, BODY_B),
+        pivot = Offset(CX, BODY_B),
     ) {
-        drawLimbs()
-        drawBody()
+        drawLegs()
+        drawSilhouette()
         drawBelly()
         drawCheeks()
         drawFace(pose, blink)
@@ -178,51 +186,63 @@ private fun DrawScope.drawPochi(
     }
 }
 
-private fun DrawScope.drawLimbs() {
-    // Solo las patitas de abajo. Unos bracitos a media altura se leían como
-    // orejas pegadas a los lados, no como brazos.
-    drawOval(Feet, Offset(50f, 162f), Size(34f, 18f))
-    drawOval(Feet, Offset(116f, 162f), Size(34f, 18f))
-    drawOval(Outline.copy(alpha = 0.35f), Offset(50f, 162f), Size(34f, 18f), style = Stroke(1.4f))
-    drawOval(Outline.copy(alpha = 0.35f), Offset(116f, 162f), Size(34f, 18f), style = Stroke(1.4f))
+private fun DrawScope.drawLegs() {
+    // Abiertas hacia fuera y asomando por los lados del cuerpo: unas patas
+    // metidas dentro del contorno no aportan nada a la silueta.
+    listOf(Offset(30f, 162f), Offset(142f, 162f)).forEach { at ->
+        val size = Size(48f, 22f)
+        drawOval(Feet, at, size)
+        drawOval(Outline.copy(alpha = 0.35f), at, size, style = Stroke(1.4f))
+    }
 }
 
-private fun DrawScope.drawBody() {
-    val topLeft = Offset(BODY_L, BODY_T)
-    val size = Size(BODY_R - BODY_L, BODY_B - BODY_T)
-    val radius = CornerRadius(BODY_RADIUS, BODY_RADIUS)
+/**
+ * Cuerpo y bultos de los ojos como una sola silueta.
+ *
+ * Se unen con [PathOperation.Union] antes de pintar: dibujarlos por separado
+ * dejaría el contorno de cada bulto cruzando la cabeza.
+ */
+private fun DrawScope.bodySilhouette(): Path {
+    val body = Path().apply {
+        addRoundRect(
+            RoundRect(
+                rect = Rect(BODY_L, BODY_T, BODY_R, BODY_B),
+                cornerRadius = CornerRadius(BODY_RADIUS, BODY_RADIUS),
+            )
+        )
+    }
+    val bumps = Path().apply {
+        addOval(Rect(Offset(BUMP_L_CX, BUMP_CY), BUMP_R))
+        addOval(Rect(Offset(BUMP_R_CX, BUMP_CY), BUMP_R))
+    }
+    return Path().apply { op(body, bumps, PathOperation.Union) }
+}
 
-    drawRoundRect(
+private fun DrawScope.drawSilhouette() {
+    val path = bodySilhouette()
+    drawPath(
+        path = path,
         brush = Brush.verticalGradient(
             colors = listOf(BodyTop, BodyBottom),
-            startY = BODY_T,
+            startY = BUMP_CY - BUMP_R,
             endY = BODY_B,
         ),
-        topLeft = topLeft,
-        size = size,
-        cornerRadius = radius,
     )
     // Contorno fino, no un trazo marcado: define la silueta sin endurecerla.
-    drawRoundRect(
-        color = Outline.copy(alpha = 0.5f),
-        topLeft = topLeft,
-        size = size,
-        cornerRadius = radius,
-        style = Stroke(width = 1.8f),
-    )
+    drawPath(path, Outline.copy(alpha = 0.5f), style = Stroke(width = 1.8f))
 }
 
 private fun DrawScope.drawBelly() {
     drawOval(
         color = Belly.copy(alpha = 0.85f),
-        topLeft = Offset(100f - 36f, BELLY_CY - BELLY_RY),
-        size = Size(72f, BELLY_RY * 2),
+        topLeft = Offset(CX - 44f, BELLY_CY - BELLY_RY),
+        size = Size(88f, BELLY_RY * 2),
     )
 }
 
 private fun DrawScope.drawCheeks() {
-    drawOval(Blush.copy(alpha = 0.45f), Offset(60f, 106f), Size(17f, 10f))
-    drawOval(Blush.copy(alpha = 0.45f), Offset(123f, 106f), Size(17f, 10f))
+    drawOval(Blush.copy(alpha = 0.45f), Offset(58f, 112f), Size(19f, 11f))
+    drawOval(Blush.copy(alpha = 0.45f), Offset(143f, 112f), Size(19f, 11f))
 }
 
 private fun DrawScope.drawFace(pose: PochiPose, blink: Float) {
@@ -230,38 +250,38 @@ private fun DrawScope.drawFace(pose: PochiPose, blink: Float) {
     val ry = EYE_RY * (1f - 0.86f * blink)
     val rise = if (pose == PochiPose.Curious) 3f else 0f
 
-    listOf(EYE_L_X, EYE_R_X).forEach { cx ->
+    listOf(BUMP_L_CX, BUMP_R_CX).forEach { cx ->
         drawOval(
             color = Ink,
-            topLeft = Offset(cx - EYE_RX, EYE_Y - rise - ry),
+            topLeft = Offset(cx - EYE_RX, BUMP_CY - rise - ry),
             size = Size(EYE_RX * 2, ry * 2),
         )
     }
 
+    // Boca ancha: junto con los bultos, es lo que dice "rana".
     val mouth = Path().apply {
-        moveTo(92f, MOUTH_Y)
-        cubicTo(95f, MOUTH_DIP, 105f, MOUTH_DIP, 108f, MOUTH_Y)
+        moveTo(CX - 22f, MOUTH_Y)
+        cubicTo(CX - 14f, MOUTH_DIP, CX + 14f, MOUTH_DIP, CX + 22f, MOUTH_Y)
     }
     drawPath(
         path = mouth,
         color = Ink.copy(alpha = 0.8f),
-        style = Stroke(width = 2.4f, cap = StrokeCap.Round),
+        style = Stroke(width = 2.6f, cap = StrokeCap.Round),
     )
 }
 
-/** Caracolito sobre la cabeza. Se balancea muy despacio, como si fuera agarrado. */
+/** Caracolito en el hueco entre los dos bultos. Se balancea muy despacio. */
 private fun DrawScope.drawSnail(sway: Float) {
-    val shell = Offset(107f, 58f)
+    val shell = Offset(CX + 8f, 54f)
 
-    rotate(degrees = sway, pivot = Offset(100f, 76f)) {
+    rotate(degrees = sway, pivot = Offset(CX, BUMP_CY)) {
         // Cuerpo, con la cabecita asomando por delante del caparazón.
-        drawOval(SnailBody, Offset(83f, 62f), Size(34f, 14f))
-        drawCircle(SnailBody, 6f, Offset(86f, 64f))
+        drawOval(SnailBody, Offset(CX - 22f, 58f), Size(34f, 14f))
+        drawCircle(SnailBody, 6f, Offset(CX - 19f, 60f))
 
-        // Antenas: finas, con la puntita marcada.
         listOf(
-            Offset(83f, 61f) to Offset(78f, 50f),
-            Offset(89f, 60f) to Offset(88f, 48f),
+            Offset(CX - 22f, 57f) to Offset(CX - 27f, 46f),
+            Offset(CX - 16f, 56f) to Offset(CX - 17f, 44f),
         ).forEach { (from, to) ->
             drawLine(Ink.copy(alpha = 0.7f), from, to, strokeWidth = 1.4f, cap = StrokeCap.Round)
             drawCircle(Ink.copy(alpha = 0.7f), 1.7f, to)
@@ -286,46 +306,45 @@ private fun DrawScope.drawSnail(sway: Float) {
 }
 
 private fun DrawScope.drawLilyPad() {
-    val cx = 100f
-    val cy = 178f
-    val rx = 66f
-    val ry = 14f
+    val cy = 182f
+    val rx = 80f
+    val ry = 15f
 
     // La muesca se recorta solo de la capa clara. Recortarla también de la base
     // dejaría ver el fondo de la pantalla por el hueco.
-    drawOval(PadBase, Offset(cx - rx, cy - ry), Size(rx * 2, ry * 2))
+    drawOval(PadBase, Offset(CX - rx, cy - ry), Size(rx * 2, ry * 2))
 
     val innerRx = rx - 5f
     val innerRy = ry - 3.5f
     val inner = Path().apply {
-        addOval(Rect(cx - innerRx, cy - innerRy, cx + innerRx, cy + innerRy))
+        addOval(Rect(CX - innerRx, cy - innerRy, CX + innerRx, cy + innerRy))
     }
     val wedge = Path().apply {
-        moveTo(cx, cy)
-        lineTo(cx + rx + 6f, cy - 8f)
-        lineTo(cx + rx + 6f, cy + 8f)
+        moveTo(CX, cy)
+        lineTo(CX + rx + 6f, cy - 8f)
+        lineTo(CX + rx + 6f, cy + 8f)
         close()
     }
     drawPath(Path().apply { op(inner, wedge, PathOperation.Difference) }, PadTop)
 }
 
 private fun DrawScope.drawReed() {
-    // El cuerpo llega hasta x=152 (y los bracitos hasta 162), así que el junco
-    // se mantiene por encima de x=170 y no roza a Pochi.
+    // Las patas llegan hasta x=190, así que el junco se mantiene más a la
+    // derecha para no rozar a Pochi.
     val stem = Path().apply {
-        moveTo(184f, 180f)
-        cubicTo(184f, 148f, 180f, 118f, 174f, 92f)
+        moveTo(206f, 184f)
+        cubicTo(206f, 152f, 202f, 122f, 196f, 96f)
     }
     drawPath(
         path = stem,
         color = PadBase.copy(alpha = 0.7f),
         style = Stroke(width = 4.5f, cap = StrokeCap.Round),
     )
-    drawOval(ReedHead.copy(alpha = 0.85f), Offset(168f, 66f), Size(11f, 26f))
+    drawOval(ReedHead.copy(alpha = 0.85f), Offset(190f, 70f), Size(11f, 26f))
     val leaf = Path().apply {
-        moveTo(182f, 140f)
-        cubicTo(175f, 132f, 170f, 122f, 169f, 114f)
-        cubicTo(176f, 118f, 181f, 129f, 182f, 140f)
+        moveTo(204f, 144f)
+        cubicTo(197f, 136f, 192f, 126f, 191f, 118f)
+        cubicTo(198f, 122f, 203f, 133f, 204f, 144f)
         close()
     }
     drawPath(leaf, PadBase.copy(alpha = 0.5f))
