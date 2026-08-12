@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema de arranque. El aspecto real lo define MuxyTheme en Compose;
+         esto solo evita el destello blanco antes de que Compose pinte. -->
+    <style name="Theme.Muxy" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/parchment</item>
+        <item name="android:statusBarColor">@color/parchment</item>
+        <item name="android:navigationBarColor">@color/parchment</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
