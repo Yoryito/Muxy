@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -53,6 +54,7 @@ import java.io.File
 @Composable
 fun MiniPlayer(
     state: PlaybackState,
+    onExpand: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
@@ -82,7 +84,14 @@ fun MiniPlayer(
         ) {
             Column {
                 Row(
-                    modifier = Modifier.padding(10.dp),
+                    // El clic va en la fila y no en la Surface para que los dos
+                    // botones sigan quedándose con sus propios toques.
+                    modifier = Modifier
+                        .clickable(
+                            onClickLabel = stringResource(R.string.player_open),
+                            onClick = onExpand,
+                        )
+                        .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LilyPadFrame(

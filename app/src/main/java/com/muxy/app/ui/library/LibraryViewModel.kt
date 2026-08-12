@@ -58,6 +58,10 @@ class LibraryViewModel(
 
     fun seekTo(positionMs: Long) = player.seekTo(positionMs)
 
+    fun toggleShuffle() = player.toggleShuffle()
+
+    fun cycleRepeat() = player.cycleRepeat()
+
     fun delete(song: Song) {
         viewModelScope.launch { library.remove(song) }
     }

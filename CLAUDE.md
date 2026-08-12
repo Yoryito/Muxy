@@ -31,6 +31,7 @@ Lo que hay que **evitar** activamente (look de "AI slop"): degradados morados/az
 - **Dynamic color de Android está desactivado a propósito** para que el tema sea idéntico en todos los dispositivos. No reactivarlo.
 - Pochi aparece solo donde cumple una función (estados vacíos, error, éxito), nunca como adorno suelto. Ver la sección "Pochi" más abajo.
 - La muesca del nenúfar (`LilyPadShape`) tiene que ser **estrecha**: una cuña ancha convierte el nenúfar en un Pac-Man. Y donde se recorta sobre un fondo, recortarla de todas las capas deja ver el fondo de la pantalla por el hueco.
+- **La muesca se mide en grados, así que crece con el radio.** Los 15° por defecto son una hendidura fina en una fila de 52 dp, pero en la carátula de 300 dp del reproductor abren un pedazo de tarta descarado. Cualquier nenúfar grande tiene que estrechar `notchWidth` a mano (la carátula usa 5°, el botón de reproducir 10°). El defecto se queda en 15° porque es el que ya está aprobado en listas y mini-reproductor.
 - Los contenedores de acento del modo oscuro tienen que ser tonos oscuros de verdad. Reutilizar un tono medio como fondo sobre el estanque nocturno queda chillón.
 
 ## Entorno de desarrollo
@@ -122,11 +123,22 @@ Para depurar el etiquetado: eAlvaTag registra la excepción real con ealvalog y 
 
 ## Estado actual
 
-Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · 4 pipeline de descarga ✅ · **5 pulido (siguiente)** · 6 auto-actualización · 7 (opcional) Spotify.
+Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · 4 pipeline de descarga ✅ · **5 pulido (en curso)** · 6 auto-actualización · 7 (opcional) Spotify.
 
 Cada fase termina con prueba manual en el móvil real por USB antes de pasar a la siguiente. Móvil de pruebas: Samsung Galaxy A55 (`SM_A556B`).
 
-Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, búsqueda real en YouTube, y el pipeline completo de descarga (resolver → bajar → convertir a M4A → etiquetar con carátula → dar de alta), con avance por etapas en la fila de resultados, notificación de progreso y cancelación.
+Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, búsqueda real en YouTube, el pipeline completo de descarga (resolver → bajar → convertir a M4A → etiquetar con carátula → dar de alta), con avance por etapas en la fila de resultados, notificación de progreso y cancelación, y el reproductor a pantalla completa.
+
+**La fase 5 se acotó a la pantalla de reproductor completa**, a petición del propietario. El resto del pulido queda sin hacer y sin fecha: la carátula en la notificación del sistema (ver más arriba), borrar canciones desde la librería (`LibraryViewModel.delete` y `MusicLibrary.pruneMissing` existen pero no los llama nadie), y buscar u ordenar dentro de la librería.
+
+### Cómo está montado el reproductor completo
+
+`PlayerScreen` se abre tocando el mini-reproductor y es una **capa sobre el `Scaffold`**, no un destino de navegación: así tapa también la barra inferior, que es lo que se espera de un reproductor a pantalla completa. `MainActivity` guarda si está abierto y lo cierra con `BackHandler`, y también solo si la cola se queda vacía.
+
+- La barra de posición es un `Slider` de Material con `track` y `thumb` propios, no un arrastre resuelto a mano: así se conserva el gesto y la accesibilidad y solo cambia cómo se pinta (nivel de agua + nenúfar por tirador). Eso obliga a `@OptIn(ExperimentalMaterial3Api::class)`, porque el `Slider` estable no deja sustituir esas piezas.
+- **Mientras se arrastra manda el dedo.** La posición se refresca sola cada 500 ms, y sin guardar el valor del arrastre aparte el tirador se volvería solo a la posición real a mitad del gesto.
+- Con duración desconocida el rango del `Slider` sería vacío y revienta, así que en ese caso va con rango de pega y deshabilitado.
+- El vaivén de la carátula **se apaga casi del todo al pausar** en vez de cortarse: a ese tamaño, seguir flotando con la música parada chirría.
 
 **Repositorio remoto:** https://github.com/Yoryito/Muxy — **público**, rama por defecto `master`. Se eligió público a propósito (el plan original asumía privado). La fase 6 distribuirá el APK desde sus GitHub Releases, que al ser públicas se pueden descargar sin token.
 

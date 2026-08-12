@@ -16,6 +16,8 @@
     <string name="action_pause">Pausar</string>
     <string name="action_next">Siguiente</string>
     <string name="action_previous">Anterior</string>
+    <string name="action_shuffle">Aleatorio</string>
+    <string name="action_repeat">Repetir</string>
     <string name="action_retry">Reintentar</string>
     <string name="action_download">Descargar</string>
     <string name="search_clear">Borrar búsqueda</string>
@@ -52,6 +54,10 @@
     <string name="download_error_extraction">La descarga no funciona: la app necesita una actualización.</string>
     <string name="download_error_conversion">El audio bajó, pero no se pudo convertir.</string>
     <string name="download_error_storage">No se pudo guardar el archivo.</string>
+
+    <string name="player_now_playing">Sonando ahora</string>
+    <string name="player_open">Abrir el reproductor</string>
+    <string name="player_collapse">Cerrar el reproductor</string>
 
     <string name="playback_channel_name">Reproducción</string>
     <string name="unknown_artist">Artista desconocido</string>

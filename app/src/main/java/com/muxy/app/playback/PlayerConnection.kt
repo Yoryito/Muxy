@@ -14,6 +14,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 
+/** Cómo se encadena la cola al terminar una canción. */
+enum class RepeatMode {
+    /** Al acabar la última, se para. */
+    Off,
+
+    /** Al acabar la última, vuelve a la primera. */
+    All,
+
+    /** Repite la canción actual indefinidamente. */
+    One,
+}
+
 /** Lo que la interfaz necesita saber de la reproducción, y nada más. */
 data class PlaybackState(
     val songId: Long? = null,
@@ -23,6 +35,9 @@ data class PlaybackState(
     val positionMs: Long = 0,
     val durationMs: Long = 0,
     val coverArtPath: String? = null,
+    val shuffleEnabled: Boolean = false,
+    val repeatMode: RepeatMode = RepeatMode.Off,
+    val hasNext: Boolean = false,
 )
 
 /**
@@ -91,6 +106,17 @@ class PlayerConnection(private val context: Context) {
         if (currentPosition > 3_000 || !hasPreviousMediaItem()) seekTo(0) else seekToPreviousMediaItem()
     }
 
+    fun toggleShuffle() = withController { shuffleModeEnabled = !shuffleModeEnabled }
+
+    /** Recorre los tres modos en el orden habitual: ninguno → toda la cola → una. */
+    fun cycleRepeat() = withController {
+        repeatMode = when (repeatMode) {
+            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+            else -> Player.REPEAT_MODE_OFF
+        }
+    }
+
     /** Refresca la posición mientras suena; el reproductor no la emite continuamente. */
     fun refresh() {
         val c = controller ?: return
@@ -102,6 +128,13 @@ class PlayerConnection(private val context: Context) {
             positionMs = c.currentPosition.coerceAtLeast(0),
             durationMs = c.duration.takeIf { it > 0 } ?: 0,
             coverArtPath = c.mediaMetadata.artworkUri?.path,
+            shuffleEnabled = c.shuffleModeEnabled,
+            repeatMode = when (c.repeatMode) {
+                Player.REPEAT_MODE_ONE -> RepeatMode.One
+                Player.REPEAT_MODE_ALL -> RepeatMode.All
+                else -> RepeatMode.Off
+            },
+            hasNext = c.hasNextMediaItem(),
         )
     }
 

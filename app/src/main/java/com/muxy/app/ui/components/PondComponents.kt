@@ -68,17 +68,22 @@ fun PondButton(
 /**
  * Contenedor con forma de nenúfar, para carátulas y avatares.
  * [notchAngle] varía la orientación de la muesca para que una lista no parezca estampada.
+ *
+ * [notchWidth] va en grados, así que la muesca crece con el radio: el valor por
+ * defecto es una hendidura fina en los tamaños de lista, pero en una carátula
+ * grande abre un pedazo de tarta. Los elementos grandes tienen que estrecharlo.
  */
 @Composable
 fun LilyPadFrame(
     modifier: Modifier = Modifier,
     notchAngle: Float = 315f,
+    notchWidth: Float = 15f,
     background: Color = MaterialTheme.colorScheme.primaryContainer,
     content: @Composable () -> Unit = {},
 ) {
     Box(
         modifier = modifier
-            .clip(LilyPadShape(notchAngleDegrees = notchAngle))
+            .clip(LilyPadShape(notchAngleDegrees = notchAngle, notchWidthDegrees = notchWidth))
             .background(background),
         contentAlignment = Alignment.Center,
     ) { content() }
