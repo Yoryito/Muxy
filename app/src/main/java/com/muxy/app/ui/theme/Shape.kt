@@ -30,7 +30,9 @@ val MuxyShapes = Shapes(
  */
 class LilyPadShape(
     private val notchAngleDegrees: Float = 315f,
-    private val notchWidthDegrees: Float = 34f,
+    // Estrecha a propósito: una cuña ancha convierte el nenúfar en un Pac-Man.
+    // Un nenúfar de verdad tiene una hendidura fina, no una porción de tarta.
+    private val notchWidthDegrees: Float = 15f,
 ) : Shape {
 
     override fun createOutline(

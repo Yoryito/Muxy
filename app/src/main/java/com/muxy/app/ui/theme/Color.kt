@@ -19,6 +19,9 @@ val PondPale = Color(0xFFD3E5E2)
 
 // --- Flor de loto (acento, uso escaso: acciones activas, progreso) ---
 val LotusDeep = Color(0xFFA85D5A)
+/** Contenedor de acento para el modo oscuro: LotusDeep es un tono medio y usado
+ *  como fondo sobre el estanque nocturno resulta chillón. */
+val LotusNight = Color(0xFF4E2C2A)
 val Lotus = Color(0xFFDE8B85)
 val LotusLight = Color(0xFFF0B3AC)
 val LotusPale = Color(0xFFF7DED9)
