@@ -73,8 +73,20 @@ adb logcat -s Muxy               # ver logs de la app
 
 ## Estado actual
 
-**Fase 1 en curso** — andamiaje del proyecto y sistema de diseño.
+Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · **3 búsqueda YouTube (siguiente)** · 4 pipeline de descarga · 5 pulido · 6 auto-actualización · 7 (opcional) Spotify.
 
-Plan por fases: 0 memoria ✅ · 1 andamiaje + diseño · 2 reproducción (Room + Media3) · 3 búsqueda YouTube · 4 pipeline de descarga · 5 pulido · 6 auto-actualización · 7 (opcional) Spotify.
+Cada fase termina con prueba manual en el móvil real por USB antes de pasar a la siguiente. Móvil de pruebas: Samsung Galaxy A55 (`SM_A556B`).
 
-Cada fase termina con prueba manual en el móvil real por USB antes de pasar a la siguiente.
+Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano, controles en notificación y pantalla de bloqueo, mini-reproductor.
+
+**Truco de pruebas:** `MusicLibrary.sync()` da de alta cualquier audio que aparezca en la carpeta de música de la app, así que se pueden meter canciones sin pasar por la descarga:
+
+```bash
+adb push "cancion.wav" /sdcard/Android/data/com.muxy.app.debug/files/music/
+```
+
+## Pochi
+
+La mascota se llama **Pochi**. Está dibujada en Canvas (`ui/components/Pochi.kt`), no como vector estático, porque así se animan las partes por separado: flota, respira y parpadea con periodos distintos para que los ciclos no caigan en fase.
+
+Es deliberadamente regordeta —más ancha que alta— y las dos poses comparten el mismo cuerpo para que sea reconociblemente la misma rana. Al tocar la cara hay que respetar el aire entre la boca y la tripa, y mantener los mofletes dentro del contorno del cuerpo: ahí es donde los detalles se solapaban antes.
