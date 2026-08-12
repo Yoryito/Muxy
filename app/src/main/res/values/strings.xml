@@ -27,7 +27,8 @@
     <string name="update_available_body">La versión %1$s ya se puede instalar (%2$s).</string>
     <string name="update_later">Ahora no</string>
     <string name="update_hide">Ocultar</string>
-    <string name="update_permission_needed">Android necesita tu permiso para que Muxy pueda instalarse sola. Actívalo y vuelve atrás.</string>
+    <!-- Sale como Toast, que Android corta a dos líneas: tiene que caber ahí. -->
+    <string name="update_permission_needed">Dale permiso a Muxy para instalar y vuelve atrás.</string>
 
     <string name="library_empty_title">Tu estanque está tranquilo</string>
     <string name="library_empty_body">Busca una canción y Pochi te la traerá aquí.</string>

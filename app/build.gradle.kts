@@ -10,7 +10,7 @@ plugins {
 
 // La versión vive aquí y en ningún sitio más: `scripts/release.sh` la reescribe
 // y el `versionCode` sale de ella, para que no puedan discrepar.
-val muxyVersionName = "0.1.10"
+val muxyVersionName = "0.1.11"
 
 /**
  * 0.1.10 -> 110. Multiplicar por 100 cada tramo deja sitio para 99 versiones de

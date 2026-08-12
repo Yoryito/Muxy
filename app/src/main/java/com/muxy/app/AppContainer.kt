@@ -13,7 +13,9 @@ import com.muxy.app.update.UpdateInstaller
 import com.muxy.app.update.UpdatePreferences
 import com.muxy.app.youtube.NewPipeAudioResolver
 import com.muxy.app.youtube.YoutubeAudioResolver
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import java.util.concurrent.TimeUnit
 
 /**
@@ -58,7 +60,26 @@ class AppContainer(context: Context) {
 
     val updateChecker: UpdateChecker by lazy { UpdateChecker(httpClient) }
 
-    val updateInstaller: UpdateInstaller by lazy { UpdateInstaller(appContext, httpFetcher) }
+    /**
+     * El APK se baja por HTTP/1.1 y con su propio pool, a diferencia de todo lo
+     * demás.
+     *
+     * OkHttp reaprovecha una conexión HTTP/2 para otro host cuando el certificado
+     * la cubre, y `api.github.com` y `objects.githubusercontent.com` caen en ese
+     * saco: la comprobación deja la conexión abierta, la descarga intenta colarse
+     * por ella y el CDN la corta con REFUSED_STREAM. Falla siempre, no de vez en
+     * cuando. Sin multiplexado no hay conexión que compartir.
+     */
+    private val updateHttpClient: OkHttpClient by lazy {
+        httpClient.newBuilder()
+            .protocols(listOf(Protocol.HTTP_1_1))
+            .connectionPool(ConnectionPool())
+            .build()
+    }
+
+    val updateInstaller: UpdateInstaller by lazy {
+        UpdateInstaller(appContext, HttpFetcher(updateHttpClient))
+    }
 
     val updatePreferences: UpdatePreferences by lazy { UpdatePreferences(appContext) }
 }

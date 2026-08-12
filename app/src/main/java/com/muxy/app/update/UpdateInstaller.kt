@@ -7,6 +7,7 @@ import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.muxy.app.BuildConfig
 import com.muxy.app.download.HttpFetcher
+import kotlinx.coroutines.delay
 import java.io.File
 
 /**
@@ -43,12 +44,19 @@ class UpdateInstaller(
         dir.listFiles()?.forEach { it.delete() }
 
         val target = File(dir, "muxy-${update.versionName}.apk")
-        runCatching { fetcher.toFile(update.apkUrl, target, onProgress) }
-            .onFailure {
-                target.delete()
-                throw it
-            }
-        return target
+
+        // Un corte de red a mitad de descarga es lo normal en un móvil, y volver
+        // a empezar cuesta unos megas: mejor eso que dar la actualización por
+        // imposible y que el usuario tenga que buscarla en ajustes.
+        repeat(ATTEMPTS) { attempt ->
+            val outcome = runCatching { fetcher.toFile(update.apkUrl, target, onProgress) }
+            if (outcome.isSuccess) return target
+
+            target.delete()
+            if (attempt == ATTEMPTS - 1) throw outcome.exceptionOrNull()!!
+            delay(RETRY_DELAY_MS)
+        }
+        error("inalcanzable")
     }
 
     fun install(apk: File) {
@@ -62,5 +70,10 @@ class UpdateInstaller(
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
         context.startActivity(intent)
+    }
+
+    private companion object {
+        const val ATTEMPTS = 3
+        const val RETRY_DELAY_MS = 1_500L
     }
 }

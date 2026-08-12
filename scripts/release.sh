@@ -56,7 +56,7 @@ cp app/build/outputs/apk/release/app-release.apk "$apk"
 
 echo "==> Commit y etiqueta"
 git add -A
-git commit -m "$version: $notes"
+git commit -m "$version: $notes" -m "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 git tag "v$version"
 git push origin HEAD --tags
 
