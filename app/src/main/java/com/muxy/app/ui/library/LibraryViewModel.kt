@@ -12,9 +12,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.Collator
+import java.text.Normalizer
+
+/** Cómo se ordena la librería. */
+enum class LibrarySort {
+    /** Lo último que ha traído Pochi, arriba. */
+    Recent,
+    Title,
+    Artist,
+}
 
 class LibraryViewModel(
     private val library: MusicLibrary,
@@ -24,9 +36,27 @@ class LibraryViewModel(
     private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
 
-    val songs: StateFlow<List<Song>> = library.observeSongs()
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+
+    private val _sort = MutableStateFlow(LibrarySort.Recent)
+    val sort: StateFlow<LibrarySort> = _sort.asStateFlow()
+
+    /** Todo lo que hay en la librería, sin filtrar. */
+    private val allSongs: StateFlow<List<Song>> = library.observeSongs()
         .onEach { _loading.value = false }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Lo que se está viendo: es también lo que se pone en la cola al reproducir. */
+    val songs: StateFlow<List<Song>> =
+        combine(allSongs, _query, _sort) { songs, query, sort ->
+            songs.filterBy(query).sortedWith(sort.comparator())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Si la librería está vacía de verdad, o solo lo parece por el filtro. */
+    val libraryIsEmpty: StateFlow<Boolean> = allSongs
+        .map { it.isEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     val playback: StateFlow<PlaybackState> = player.state
 
@@ -44,6 +74,15 @@ class LibraryViewModel(
         }
     }
 
+    fun onQueryChange(value: String) {
+        _query.value = value
+    }
+
+    fun onSortChange(value: LibrarySort) {
+        _sort.value = value
+    }
+
+    /** La cola es lo que se está viendo, no la librería entera. */
     fun play(song: Song) {
         val current = songs.value
         val index = current.indexOfFirst { it.id == song.id }.takeIf { it >= 0 } ?: return
@@ -62,8 +101,16 @@ class LibraryViewModel(
 
     fun cycleRepeat() = player.cycleRepeat()
 
+    /**
+     * Borra la canción del disco y de la base. Sale primero de la cola: si se
+     * quedara, el reproductor acabaría llegando a un archivo que ya no existe.
+     * Sus filas en las playlists se van solas, en cascada.
+     */
     fun delete(song: Song) {
-        viewModelScope.launch { library.remove(song) }
+        viewModelScope.launch {
+            player.removeSong(song.id)
+            library.remove(song)
+        }
     }
 
     class Factory(
@@ -73,5 +120,46 @@ class LibraryViewModel(
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
             LibraryViewModel(library, player) as T
+    }
+}
+
+/**
+ * Filtra por título y artista ignorando mayúsculas y tildes: quien busca
+ * "cancion" espera encontrar "Canción", y en castellano eso pasa constantemente.
+ */
+private fun List<Song>.filterBy(query: String): List<Song> {
+    val needle = query.foldForSearch()
+    if (needle.isBlank()) return this
+    return filter { song ->
+        song.title.foldForSearch().contains(needle) ||
+            song.artist?.foldForSearch()?.contains(needle) == true
+    }
+}
+
+private val DIACRITICS = "\\p{Mn}+".toRegex()
+
+private fun String.foldForSearch(): String =
+    Normalizer.normalize(lowercase(), Normalizer.Form.NFD).replace(DIACRITICS, "")
+
+/**
+ * El orden alfabético va con [Collator] y no con `compareBy`: comparar cadenas
+ * por code point deja la "Ñ" y todo lo acentuado detrás de la "Z".
+ */
+private fun LibrarySort.comparator(): Comparator<Song> {
+    val collator = Collator.getInstance()
+    return when (this) {
+        LibrarySort.Recent -> compareByDescending<Song> { it.addedAt }
+        LibrarySort.Title -> Comparator { a, b -> collator.compare(a.title, b.title) }
+        // Sin artista se va al final, no al principio: son las importadas a mano
+        // y no aportan nada arriba del todo.
+        LibrarySort.Artist -> Comparator { a, b ->
+            when {
+                a.artist == null && b.artist == null -> collator.compare(a.title, b.title)
+                a.artist == null -> 1
+                b.artist == null -> -1
+                else -> collator.compare(a.artist, b.artist)
+                    .takeIf { it != 0 } ?: collator.compare(a.title, b.title)
+            }
+        }
     }
 }

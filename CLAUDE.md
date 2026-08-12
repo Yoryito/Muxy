@@ -88,15 +88,14 @@ Para capturas usar `adb exec-out`, no `adb shell screencap` con una ruta: Git Ba
 - Salida solo en M4A. Si algún día hiciera falta MP3, implicaría reintroducir FFmpeg y su carga de mantenimiento.
 - **eAlvaTag no sabe etiquetar lo que sale de Media3 Transformer sin retocar antes las cabeceras.** Ver `download/Mp4Headers.kt`: son tres incompatibilidades reales, no una manía, y una de ellas dejaba las canciones mudas sin dar ningún error. Detalle abajo.
 
-### Pendiente: la carátula no sale en la notificación del sistema
+### La carátula de la notificación va por bytes, no por URI
 
-En logcat aparece, al reproducir:
+Estaba el fallo de que SystemUI no podía leer `.../files/covers/<id>.jpg` (`EACCES`): la carpeta es privada de la app y el sistema la lee desde otro proceso. Resuelto, pero el arreglo tiene dos partes que hay que mantener juntas:
 
-```
-ImageLoader: java.io.FileNotFoundException: .../files/covers/<id>.jpg: open failed: EACCES
-```
+- **`Song.toMediaItem()` ya no pone `artworkUri`.** Es clave: mientras haya una URI, el sistema la prefiere sobre cualquier otra cosa y vuelve el EACCES. La ruta viaja en `mediaMetadata.extras` bajo `EXTRA_COVER_PATH`, que es de donde la saca `PlayerConnection.refresh()` para que Coil pinte la carátula dentro de la app (nuestro proceso sí puede leer el archivo).
+- **`PlaybackService` le pega los bytes solo a la canción actual**, al vuelo, en `onMediaItemTransition` (ver `attachArtwork` y `CoverBytes`). No se hace al montar la cola porque la cola es la librería entera: serían decenas de megas de `ByteArray` cruzando Binder y un tirón en el hilo principal al dar a reproducir. Se reescala a 512 px, que es de sobra para una notificación.
 
-`Song.toMediaItem()` pasa la carátula como `file://` de la carpeta privada de la app, y SystemUI no puede leer ahí. Dentro de Muxy se ve bien (Coil corre en nuestro proceso); lo que falta es la miniatura en la notificación y la pantalla de bloqueo. Se arregla pasando los bytes con `setArtworkData` en vez de la URI, o exponiendo un `FileProvider`. Queda para la fase 5.
+Detalles que no conviene tocar: el `replaceMediaItem` **no corta el audio** porque el elemento nuevo conserva la misma URI y ExoPlayer solo actualiza metadatos; y la guarda de `artworkData != null` es lo que impide un bucle infinito, porque reemplazar el elemento vuelve a disparar eventos.
 
 ## Etiquetado: por qué existe `Mp4Headers`
 
@@ -123,13 +122,15 @@ Para depurar el etiquetado: eAlvaTag registra la excepción real con ealvalog y 
 
 ## Estado actual
 
-Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · 4 pipeline de descarga ✅ · **5 pulido (en curso)** · 6 auto-actualización · 7 (opcional) Spotify.
+Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · 4 pipeline de descarga ✅ · **5 pulido ✅** · 6 auto-actualización · 7 (opcional) Spotify.
 
 Cada fase termina con prueba manual en el móvil real por USB antes de pasar a la siguiente. Móvil de pruebas: Samsung Galaxy A55 (`SM_A556B`).
 
-Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, búsqueda real en YouTube, el pipeline completo de descarga (resolver → bajar → convertir a M4A → etiquetar con carátula → dar de alta), con avance por etapas en la fila de resultados, notificación de progreso y cancelación, y el reproductor a pantalla completa.
+Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, búsqueda real en YouTube, el pipeline completo de descarga (resolver → bajar → convertir a M4A → etiquetar con carátula → dar de alta), con avance por etapas en la fila de resultados, notificación de progreso y cancelación, el reproductor a pantalla completa, la carátula en la notificación del sistema, filtrar y ordenar la librería, borrar canciones y las playlists.
 
-**La fase 5 se acotó a la pantalla de reproductor completa**, a petición del propietario. El resto del pulido queda sin hacer y sin fecha: la carátula en la notificación del sistema (ver más arriba), borrar canciones desde la librería (`LibraryViewModel.delete` y `MusicLibrary.pruneMissing` existen pero no los llama nadie), y buscar u ordenar dentro de la librería.
+La fase 5 se hizo en dos tandas, acotadas las dos por el propietario: primero solo el reproductor a pantalla completa, y después la carátula de la notificación, el borrado, el filtro/orden de la librería y las playlists — que las pidió él y no estaban en el plan original.
+
+Sigue sin hacer, sin fecha: `MusicLibrary.pruneMissing` existe pero no lo llama nadie (`sync()` da de alta lo que aparece, pero no da de baja lo que desaparece), y las playlists no se pueden reordenar a mano.
 
 ### Cómo está montado el reproductor completo
 
@@ -139,6 +140,22 @@ Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción
 - **Mientras se arrastra manda el dedo.** La posición se refresca sola cada 500 ms, y sin guardar el valor del arrastre aparte el tirador se volvería solo a la posición real a mitad del gesto.
 - Con duración desconocida el rango del `Slider` sería vacío y revienta, así que en ese caso va con rango de pega y deshabilitado.
 - El vaivén de la carátula **se apaga casi del todo al pausar** en vez de cortarse: a ese tamaño, seguir flotando con la música parada chirría.
+
+### Cómo están montadas las playlists y la librería
+
+Las playlists son dos tablas nuevas (`playlists` y `playlist_songs`) y la base pasó a **versión 2 con migración de verdad**, no con `fallbackToDestructiveMigration`: a estas alturas ya hay canciones descargadas en el móvil y perder la librería por estrenar las listas sería un mal negocio. El SQL de `MIGRATION_1_2` tiene que coincidir **carácter a carácter** con lo que genera Room, que lo valida al abrir; la referencia está en `app/schemas/…/2.json` y se comprueba comparando con el `createSql` de ahí.
+
+- Las **claves ajenas borran en cascada**, y de eso depende que borrar una canción la saque de todas las listas sin que nadie tenga que acordarse de limpiar a mano.
+- La clave primaria compuesta de `playlist_songs` impide duplicados dentro de una lista, y el alta va con `IGNORE` para que añadir algo que ya está no sea un error.
+- El puesto de una canción nueva sale de `MAX(position) + 1`, no del recuento: quitar una del medio y calcular por recuento haría que la siguiente chocara con un puesto ya usado.
+- La pestaña **enseña la lista o el detalle según haya una abierta**, sin `NavHost`: con una sola pantalla de profundidad sería más andamiaje que navegación. El `BackHandler` del detalle está guardado con `!playerOpen` para que, con el reproductor abierto, atrás lo cierre a él primero.
+- **Borrar una canción la saca antes de la cola** (`PlayerConnection.removeSong`). Si se quedara, el reproductor acabaría llegando a un archivo que ya no existe.
+
+En la librería, el filtro y el orden se resuelven **en Kotlin sobre el flujo de la base**, no con consultas: la librería es pequeña y así no hay que rehacer el DAO por cada criterio. Dos detalles que sí importan:
+
+- La búsqueda **ignora tildes** (normaliza a NFD y quita los diacríticos): en castellano, quien escribe "cancion" espera encontrar "Canción".
+- El orden alfabético va con `Collator`, no con `compareBy`: comparar cadenas por code point deja la "Ñ" y todo lo acentuado detrás de la "Z".
+- **La cola es lo que se está viendo**, no la librería entera: si hay un filtro puesto, se reproduce lo filtrado.
 
 **Repositorio remoto:** https://github.com/Yoryito/Muxy — **público**, rama por defecto `master`. Se eligió público a propósito (el plan original asumía privado). La fase 6 distribuirá el APK desde sus GitHub Releases, que al ser públicas se pueden descargar sin token.
 

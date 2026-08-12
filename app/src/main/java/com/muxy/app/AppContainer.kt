@@ -3,6 +3,7 @@ package com.muxy.app
 import android.content.Context
 import com.muxy.app.data.MuxyDatabase
 import com.muxy.app.data.MusicLibrary
+import com.muxy.app.data.PlaylistRepository
 import com.muxy.app.download.AudioTranscoder
 import com.muxy.app.download.DownloadQueue
 import com.muxy.app.download.HttpFetcher
@@ -22,6 +23,10 @@ class AppContainer(context: Context) {
 
     val library: MusicLibrary by lazy {
         MusicLibrary(appContext, MuxyDatabase.get(appContext).songDao())
+    }
+
+    val playlists: PlaylistRepository by lazy {
+        PlaylistRepository(MuxyDatabase.get(appContext).playlistDao())
     }
 
     val player: PlayerConnection by lazy { PlayerConnection(appContext) }

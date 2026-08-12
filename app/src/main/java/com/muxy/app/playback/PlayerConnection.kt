@@ -2,6 +2,7 @@ package com.muxy.app.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -117,6 +118,19 @@ class PlayerConnection(private val context: Context) {
         }
     }
 
+    /**
+     * Saca una canción de la cola. Se llama al borrarla de la librería: si se
+     * quedara, el reproductor llegaría a ella y se encontraría el archivo ya
+     * borrado. Se recorre hacia atrás porque quitar un elemento recoloca los
+     * índices de los que van detrás.
+     */
+    fun removeSong(songId: Long) = withController {
+        val target = songId.toString()
+        for (index in mediaItemCount - 1 downTo 0) {
+            if (getMediaItemAt(index).mediaId == target) removeMediaItem(index)
+        }
+    }
+
     /** Refresca la posición mientras suena; el reproductor no la emite continuamente. */
     fun refresh() {
         val c = controller ?: return
@@ -127,7 +141,7 @@ class PlayerConnection(private val context: Context) {
             isPlaying = c.isPlaying,
             positionMs = c.currentPosition.coerceAtLeast(0),
             durationMs = c.duration.takeIf { it > 0 } ?: 0,
-            coverArtPath = c.mediaMetadata.artworkUri?.path,
+            coverArtPath = c.mediaMetadata.extras?.getString(EXTRA_COVER_PATH),
             shuffleEnabled = c.shuffleModeEnabled,
             repeatMode = when (c.repeatMode) {
                 Player.REPEAT_MODE_ONE -> RepeatMode.One
@@ -144,6 +158,18 @@ class PlayerConnection(private val context: Context) {
     }
 }
 
+/**
+ * Dónde viaja la ruta de la carátula.
+ *
+ * No va en `artworkUri` a propósito: sería un `file://` de la carpeta privada de
+ * la app, y el sistema lo prefiere sobre cualquier otra cosa para pintar la
+ * notificación — pero no puede abrirlo desde su proceso, así que la miniatura se
+ * quedaba en blanco. Sin URI, el sistema usa los bytes que le pega
+ * [PlaybackService], y la ruta sigue aquí para que la interfaz de la propia app
+ * (que sí puede leer el archivo) la pinte con Coil.
+ */
+const val EXTRA_COVER_PATH = "com.muxy.app.COVER_PATH"
+
 fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
     .setMediaId(id.toString())
     .setUri(File(filePath).toUri())
@@ -152,7 +178,11 @@ fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
             .setTitle(title)
             .setArtist(artist)
             .setAlbumTitle(album)
-            .setArtworkUri(coverArtPath?.let { File(it).toUri() })
+            .setExtras(
+                Bundle().apply {
+                    if (coverArtPath != null) putString(EXTRA_COVER_PATH, coverArtPath)
+                },
+            )
             .build(),
     )
     .build()

@@ -61,7 +61,7 @@ import com.muxy.app.R
 import com.muxy.app.playback.PlaybackState
 import com.muxy.app.playback.RepeatMode
 import com.muxy.app.ui.components.LilyPadFrame
-import com.muxy.app.ui.library.formatDuration
+import com.muxy.app.ui.components.formatDuration
 import com.muxy.app.ui.theme.LilyPadShape
 import java.io.File
 

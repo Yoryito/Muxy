@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
@@ -37,12 +38,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.muxy.app.ui.components.PochiEmptyState
-import com.muxy.app.ui.components.PochiPose
 import com.muxy.app.ui.library.LibraryScreen
 import com.muxy.app.ui.library.LibraryViewModel
 import com.muxy.app.ui.player.MiniPlayer
 import com.muxy.app.ui.player.PlayerScreen
+import com.muxy.app.ui.playlists.PlaylistDetailScreen
+import com.muxy.app.ui.playlists.PlaylistsScreen
+import com.muxy.app.ui.playlists.PlaylistsViewModel
 import com.muxy.app.ui.search.SearchScreen
 import com.muxy.app.ui.search.SearchViewModel
 import com.muxy.app.ui.theme.MuxyTheme
@@ -67,6 +69,9 @@ class MainActivity : ComponentActivity() {
                     libraryViewModel = viewModel(
                         factory = LibraryViewModel.Factory(container.library, container.player),
                     ),
+                    playlistsViewModel = viewModel(
+                        factory = PlaylistsViewModel.Factory(container.playlists, container.player),
+                    ),
                     searchViewModel = viewModel(
                         factory = SearchViewModel.Factory(
                             container.youtube,
@@ -89,20 +94,31 @@ class MainActivity : ComponentActivity() {
 
 private enum class Destination(val labelRes: Int) {
     Library(R.string.nav_library),
+    Playlists(R.string.nav_playlists),
     Search(R.string.nav_search),
 }
 
 @Composable
 private fun MuxyApp(
     libraryViewModel: LibraryViewModel,
+    playlistsViewModel: PlaylistsViewModel,
     searchViewModel: SearchViewModel,
 ) {
     var current by rememberSaveable { mutableStateOf(Destination.Library) }
     var playerOpen by rememberSaveable { mutableStateOf(false) }
 
     val songs by libraryViewModel.songs.collectAsStateWithLifecycle()
+    val libraryIsEmpty by libraryViewModel.libraryIsEmpty.collectAsStateWithLifecycle()
+    val libraryQuery by libraryViewModel.query.collectAsStateWithLifecycle()
+    val librarySort by libraryViewModel.sort.collectAsStateWithLifecycle()
     val playback by libraryViewModel.playback.collectAsStateWithLifecycle()
     val search by searchViewModel.state.collectAsStateWithLifecycle()
+
+    val playlists by playlistsViewModel.summaries.collectAsStateWithLifecycle()
+    val openPlaylist by playlistsViewModel.openPlaylist.collectAsStateWithLifecycle()
+    val openPlaylistSongs by playlistsViewModel.openSongs.collectAsStateWithLifecycle()
+
+    val defaultPlaylistName = stringResource(R.string.playlist_default_name)
 
     // Si la cola se vacía, el reproductor se queda sin nada que enseñar.
     LaunchedEffect(playback.songId) {
@@ -110,6 +126,11 @@ private fun MuxyApp(
     }
 
     BackHandler(enabled = playerOpen) { playerOpen = false }
+    // Con el reproductor abierto manda él: atrás lo cierra antes de tocar la
+    // pestaña que hay debajo.
+    BackHandler(enabled = !playerOpen && openPlaylist != null) {
+        playlistsViewModel.closeDetail()
+    }
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
@@ -134,6 +155,7 @@ private fun MuxyApp(
                                     Icon(
                                         imageVector = when (destination) {
                                             Destination.Library -> Icons.Rounded.LibraryMusic
+                                            Destination.Playlists -> Icons.AutoMirrored.Rounded.QueueMusic
                                             Destination.Search -> Icons.Rounded.Search
                                         },
                                         contentDescription = null,
@@ -161,10 +183,48 @@ private fun MuxyApp(
             when (current) {
                 Destination.Library -> LibraryScreen(
                     songs = songs,
+                    libraryIsEmpty = libraryIsEmpty,
+                    query = libraryQuery,
+                    sort = librarySort,
                     playingSongId = playback.songId,
+                    playlists = playlists,
+                    playlistsContaining = playlistsViewModel::playlistsContaining,
+                    onQueryChange = libraryViewModel::onQueryChange,
+                    onSortChange = libraryViewModel::onSortChange,
                     onPlay = libraryViewModel::play,
+                    onDelete = libraryViewModel::delete,
+                    onTogglePlaylist = playlistsViewModel::toggleSong,
+                    onCreatePlaylistWith = { name, songId ->
+                        playlistsViewModel.create(name, defaultPlaylistName, songId)
+                    },
                     contentPadding = innerPadding,
                 )
+
+                // La pestaña enseña la lista o el detalle según haya una abierta:
+                // una sola pantalla de profundidad no justifica un NavHost.
+                Destination.Playlists -> openPlaylist.let { playlist ->
+                    if (playlist == null) {
+                        PlaylistsScreen(
+                            playlists = playlists,
+                            onOpen = playlistsViewModel::open,
+                            onCreate = { playlistsViewModel.create(it, defaultPlaylistName) },
+                            contentPadding = innerPadding,
+                        )
+                    } else {
+                        PlaylistDetailScreen(
+                            playlist = playlist,
+                            songs = openPlaylistSongs,
+                            playingSongId = playback.songId,
+                            onBack = playlistsViewModel::closeDetail,
+                            onPlayAll = playlistsViewModel::playAll,
+                            onPlay = playlistsViewModel::play,
+                            onRemoveSong = { playlistsViewModel.removeSong(playlist.id, it.id) },
+                            onRename = { playlistsViewModel.rename(playlist.id, it) },
+                            onDelete = { playlistsViewModel.delete(playlist.id) },
+                            contentPadding = innerPadding,
+                        )
+                    }
+                }
 
                 Destination.Search -> SearchScreen(
                     state = search,

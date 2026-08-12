@@ -3,10 +3,53 @@
     <string name="app_name">Muxy</string>
 
     <string name="nav_library">Librería</string>
+    <string name="nav_playlists">Playlists</string>
     <string name="nav_search">Buscar</string>
 
     <string name="library_empty_title">Tu estanque está tranquilo</string>
     <string name="library_empty_body">Busca una canción y Pochi te la traerá aquí.</string>
+
+    <string name="library_filter_placeholder">Filtra tu librería</string>
+    <string name="library_sort">Ordenar</string>
+    <string name="library_sort_recent">Recientes</string>
+    <string name="library_sort_title">Título</string>
+    <string name="library_sort_artist">Artista</string>
+    <string name="library_no_matches_title">Por aquí no hay nada</string>
+    <string name="library_no_matches_body">Ninguna canción de tu librería coincide con eso.</string>
+
+    <string name="song_actions">Opciones de la canción</string>
+    <string name="song_add_to_playlist">Añadir a una playlist</string>
+    <string name="song_delete">Quitar de la librería</string>
+    <string name="song_delete_title">¿Quitar «%1$s»?</string>
+    <string name="song_delete_body">Se borrará del móvil y saldrá de tus playlists. Para volver a tenerla habría que descargarla otra vez.</string>
+
+    <string name="playlists_empty_title">Todavía no hay playlists</string>
+    <string name="playlists_empty_body">Agrupa tus canciones como te apetezca: Pochi te las guarda aquí.</string>
+    <string name="playlist_new">Nueva playlist</string>
+    <string name="playlist_name_label">Nombre</string>
+    <string name="playlist_default_name">Playlist sin nombre</string>
+    <string name="playlist_empty_title">Esta playlist está vacía</string>
+    <string name="playlist_empty_body">Mantén pulsada una canción de tu librería para añadirla aquí.</string>
+    <string name="playlist_options">Opciones de la playlist</string>
+    <string name="playlist_rename">Cambiar el nombre</string>
+    <string name="playlist_delete">Borrar la playlist</string>
+    <string name="playlist_delete_title">¿Borrar «%1$s»?</string>
+    <string name="playlist_delete_body">Desaparece la lista, pero sus canciones se quedan en tu librería.</string>
+    <string name="playlist_remove_song">Quitar de la playlist</string>
+    <string name="playlist_play_all">Reproducir todo</string>
+    <string name="playlist_back">Volver a las playlists</string>
+    <plurals name="playlist_song_count">
+        <item quantity="one">%d canción</item>
+        <item quantity="other">%d canciones</item>
+    </plurals>
+
+    <string name="action_cancel">Cancelar</string>
+    <!-- Una canción se "quita" de la librería y una lista se "borra": el botón
+         de confirmar tiene que decir lo mismo que el título de su diálogo. -->
+    <string name="action_remove">Quitar</string>
+    <string name="action_delete">Borrar</string>
+    <string name="action_create">Crear</string>
+    <string name="action_save">Guardar</string>
 
     <string name="search_placeholder">Busca una canción o artista</string>
     <string name="search_empty_title">¿Qué te apetece escuchar?</string>
