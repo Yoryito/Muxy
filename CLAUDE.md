@@ -94,7 +94,9 @@ Cada fase termina con prueba manual en el móvil real por USB antes de pasar a l
 
 Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, y búsqueda real en YouTube con resolución de la pista de audio.
 
-**Pendiente inmediato — crear el repositorio en GitHub.** El repo local ya existe con todos los commits hechos; falta solo crear el remoto y subirlo. La cuenta `Yoryito` ya está autenticada en `gh` (scopes `repo`, `workflow`), así que basta con `gh repo create`. Preguntar antes si lo quiere privado o público; el plan asumía privado. Hace falta de todos modos para la fase 6, que distribuye el APK vía GitHub Releases.
+**Repositorio remoto:** https://github.com/Yoryito/Muxy — **público**, rama por defecto `master`. Se eligió público a propósito (el plan original asumía privado). La fase 6 distribuirá el APK desde sus GitHub Releases, que al ser públicas se pueden descargar sin token.
+
+Al ser público, todo lo que se commitee es visible: este mismo CLAUDE.md incluido. No meter nunca el keystore de release ni `local.properties` (ya están en `.gitignore`).
 
 ### Qué queda por hacer en la fase 4
 
