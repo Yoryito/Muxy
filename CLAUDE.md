@@ -85,19 +85,40 @@ Para capturas usar `adb exec-out`, no `adb shell screencap` con una ruta: Git Ba
 - **La extracción de YouTube se romperá periódicamente.** Es esperado, no un bug puntual. La señal es `ResolveError.ExtractionFailed` apareciendo de golpe en todas las búsquedas (se registra con un aviso explícito en logcat). Cuando pase: subir `newpipeExtractor` en `gradle/libs.versions.toml`; si eso no basta, la interfaz `YoutubeAudioResolver` permite cambiar de backend (por ejemplo a yt-dlp) tocando un solo archivo.
 - **El captcha de YouTube (HTTP 429) no es un fallo de red.** Se distingue a propósito como `ResolveError.RateLimited`, porque reintentar solo empeora el bloqueo. Por eso la búsqueda lleva debounce: sin él, cada pulsación sería una petición.
 - Salida solo en M4A. Si algún día hiciera falta MP3, implicaría reintroducir FFmpeg y su carga de mantenimiento.
-- **eAlvaTag no sabe etiquetar lo que sale de Media3 Transformer sin retocar antes las cabeceras.** Ver `download/Mp4Headers.kt`: son dos incompatibilidades reales, no una manía, y sin ellas la descarga funciona pero el archivo se queda sin metadatos. Detalle abajo.
+- **eAlvaTag no sabe etiquetar lo que sale de Media3 Transformer sin retocar antes las cabeceras.** Ver `download/Mp4Headers.kt`: son tres incompatibilidades reales, no una manía, y una de ellas dejaba las canciones mudas sin dar ningún error. Detalle abajo.
+
+### Pendiente: la carátula no sale en la notificación del sistema
+
+En logcat aparece, al reproducir:
+
+```
+ImageLoader: java.io.FileNotFoundException: .../files/covers/<id>.jpg: open failed: EACCES
+```
+
+`Song.toMediaItem()` pasa la carátula como `file://` de la carpeta privada de la app, y SystemUI no puede leer ahí. Dentro de Muxy se ve bien (Coil corre en nuestro proceso); lo que falta es la miniatura en la notificación y la pantalla de bloqueo. Se arregla pasando los bytes con `setArtworkData` en vez de la URI, o exponiendo un `FileProvider`. Queda para la fase 5.
 
 ## Etiquetado: por qué existe `Mp4Headers`
 
-Los MP4 que produce Transformer son válidos —cualquier reproductor los abre— pero eAlvaTag, pensada para archivos de iTunes, se atraganta con dos cosas. `Mp4Headers` las corrige tocando **solo cabeceras**, sin mover un byte de audio, y lo deja como estaba al terminar.
+Los MP4 que produce Transformer son válidos —cualquier reproductor los abre— pero eAlvaTag, pensada para archivos de iTunes, se atraganta con tres cosas. `Mp4Headers` las corrige tocando **solo cabeceras y tablas de offsets**, sin mover un byte de audio.
 
-1. **`mdat` con tamaño de 64 bits.** Los muxers de Android (tanto el propio de Media3 como el del sistema) escriben el campo de tamaño a 1 y el tamaño real en los 8 bytes siguientes. eAlvaTag guarda el tamaño de caja en un `int` y no contempla esa variante: falla con *"This file does not appear to be an Mp4 file"*. Como la cabecera de 64 bits ocupa 16 bytes y la de 32 ocupa 8, los 8 sobrantes se convierten en una caja `free` vacía y el audio sigue empezando en el mismo desplazamiento — que es lo que importa, porque las tablas `stco` apuntan ahí.
+1. **`mdat` con tamaño de 64 bits.** Los muxers de Android escriben el campo de tamaño a 1 y el tamaño real en los 8 bytes siguientes. eAlvaTag guarda el tamaño de caja en un `int` y no contempla esa variante: falla con *"This file does not appear to be an Mp4 file"*. Como la cabecera de 64 bits ocupa 16 bytes y la de 32 ocupa 8, los 8 sobrantes se convierten en una caja de relleno vacía y el audio sigue empezando en el mismo desplazamiento — que es lo que importa, porque las tablas de chunks apuntan ahí.
 
-2. **La caja `free` gigante que deja el muxer.** Media3 reserva ~400 KB para el `moov` y lo que sobra queda como `free` entre `moov` y `mdat`. Al verlo, eAlvaTag intenta encajar los metadatos ahí sin mover nada ("Option 5"), le sale mal la cuenta y aborta con *"Cannot make changes to file"*. El truco es **renombrar esa caja a `skip`** — el estándar las define como equivalentes, pero eAlvaTag no reconoce `skip` —, con lo que se va a su camino normal de reescribir el archivo corrigiendo los `stco`, que es el que usa con cualquier MP4 de iTunes y sí funciona.
+2. **La caja `free` gigante que deja el muxer.** Media3 reserva ~400 KB para el `moov` y lo que sobra queda como `free` entre `moov` y `mdat`. Al verlo, eAlvaTag intenta encajar los metadatos ahí sin mover nada ("Option 5"), le sale mal la cuenta y aborta con *"Cannot make changes to file"*. El truco es **renombrar esa caja a `skip`** — el estándar las define como equivalentes, pero eAlvaTag no reconoce `skip` —, con lo que se va a su camino normal: reescribir el archivo desplazando el `mdat`.
+
+3. **Y ahí está la trampa, que costó cara: al desplazar el `mdat` no corrige los offsets.** Las tablas que dicen dónde empieza cada trozo de audio existen en dos variantes, `stco` (32 bits) y `co64` (64 bits). **eAlvaTag solo conoce `stco`, y Media3 escribe `co64`.** Así que mueve el audio unos 50 KB y deja los offsets apuntando a donde estaba: al relleno. El resultado es una canción que **no suena** mientras el reloj del reproductor avanza con toda normalidad y no aparece ni un error en logcat. `repairChunkOffsets` los recoloca sumándoles el desplazamiento real del `mdat`.
 
 Cambiar de muxer **no** arregla nada: se probó `FrameworkMuxer` (el del sistema) y es peor, porque además escribe un `moov/udta` que eAlvaTag rechaza al leer.
 
-Para depurar esto: eAlvaTag registra la excepción real con ealvalog y en Android no sale por ningún lado, así que el camino rápido es sacar el `.m4a` del móvil con `adb pull` y reproducir el fallo en la JVM de escritorio con `Loggers.INSTANCE.setFactory(StdoutLoggerFactory.INSTANCE)`, que sí imprime la causa y la rama que eligió.
+### Cómo comprobar que un M4A está sano
+
+El fallo del punto 3 es invisible desde la app, así que **no vale con reproducir y ver que la barra avanza** — avanza igual con el archivo roto. La comprobación de verdad es sacar el archivo y mirar dónde apunta la primera entrada de la tabla de chunks:
+
+- Sano: la primera entrada coincide con el principio del `mdat` y ahí hay tramas AAC (bytes variados, `ff f1` de sincronía).
+- Roto: apunta antes del `mdat` y ahí solo hay ceros.
+
+`TrackTagger` lleva esa comprobación incorporada (`Mp4Headers.chunkOffsetsPointIntoAudio`) y **si no la pasa recupera la copia previa al etiquetado**: la canción se queda sin etiquetas, que se nota y se arregla, en vez de muda, que no se nota. No quitar esa red.
+
+Para depurar el etiquetado: eAlvaTag registra la excepción real con ealvalog y en Android no sale por ningún lado, así que el camino rápido es sacar el `.m4a` con `adb pull` y reproducir el fallo en la JVM de escritorio con `Loggers.INSTANCE.setFactory(StdoutLoggerFactory.INSTANCE)`, que sí imprime la causa y la rama que eligió.
 
 ## Estado actual
 
