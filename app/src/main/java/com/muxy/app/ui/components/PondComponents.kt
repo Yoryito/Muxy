@@ -1,10 +1,5 @@
 package com.muxy.app.ui.components
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,9 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.muxy.app.ui.theme.LilyPadShape
@@ -93,29 +85,17 @@ fun LilyPadFrame(
 }
 
 /**
- * Estado vacío con la ranita. Se usa solo donde cumple una función:
+ * Estado vacío con Pochi. Se usa solo donde cumple una función:
  * librería vacía, búsqueda sin empezar, error. Nunca como adorno.
  */
 @Composable
-fun FrogEmptyState(
-    illustration: Int,
+fun PochiEmptyState(
+    pose: PochiPose,
     title: String,
     body: String,
     modifier: Modifier = Modifier,
     action: (@Composable () -> Unit)? = null,
 ) {
-    // Flotación muy leve, como si estuviera sobre el agua.
-    val transition = rememberInfiniteTransition(label = "float")
-    val offset by transition.animateFloat(
-        initialValue = -3f,
-        targetValue = 3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2600),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "floatOffset",
-    )
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -123,13 +103,9 @@ fun FrogEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        androidx.compose.foundation.Image(
-            painter = painterResource(illustration),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .size(190.dp)
-                .graphicsLayer { translationY = offset },
+        Pochi(
+            pose = pose,
+            modifier = Modifier.size(width = 220.dp, height = 190.dp),
         )
         Text(
             text = title,

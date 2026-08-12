@@ -6,11 +6,11 @@
     <string name="nav_search">Buscar</string>
 
     <string name="library_empty_title">Tu estanque está tranquilo</string>
-    <string name="library_empty_body">Busca una canción y la traeremos aquí.</string>
+    <string name="library_empty_body">Busca una canción y Pochi te la traerá aquí.</string>
 
     <string name="search_placeholder">Busca una canción o artista</string>
     <string name="search_empty_title">¿Qué te apetece escuchar?</string>
-    <string name="search_empty_body">Escribe arriba y la ranita saldrá a buscarla.</string>
+    <string name="search_empty_body">Escribe arriba y Pochi saldrá a buscarla.</string>
 
     <string name="action_play">Reproducir</string>
     <string name="action_pause">Pausar</string>

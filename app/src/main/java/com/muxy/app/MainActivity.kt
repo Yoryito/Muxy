@@ -23,7 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.muxy.app.ui.components.FrogEmptyState
+import com.muxy.app.ui.components.PochiEmptyState
+import com.muxy.app.ui.components.PochiPose
 import com.muxy.app.ui.theme.MuxyTheme
 
 class MainActivity : ComponentActivity() {
@@ -84,15 +85,15 @@ private fun MuxyApp() {
         },
     ) { innerPadding ->
         when (current) {
-            Destination.Library -> FrogEmptyState(
-                illustration = R.drawable.frog_resting,
+            Destination.Library -> PochiEmptyState(
+                pose = PochiPose.Resting,
                 title = stringResource(R.string.library_empty_title),
                 body = stringResource(R.string.library_empty_body),
                 modifier = Modifier.padding(innerPadding),
             )
 
-            Destination.Search -> FrogEmptyState(
-                illustration = R.drawable.frog_searching,
+            Destination.Search -> PochiEmptyState(
+                pose = PochiPose.Curious,
                 title = stringResource(R.string.search_empty_title),
                 body = stringResource(R.string.search_empty_body),
                 modifier = Modifier.padding(innerPadding),
