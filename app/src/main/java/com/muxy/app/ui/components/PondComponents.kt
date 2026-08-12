@@ -105,7 +105,7 @@ fun PochiEmptyState(
     ) {
         Pochi(
             pose = pose,
-            modifier = Modifier.size(width = 220.dp, height = 190.dp),
+            modifier = Modifier.size(width = 215.dp, height = 215.dp),
         )
         Text(
             text = title,
