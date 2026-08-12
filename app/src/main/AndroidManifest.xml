@@ -52,18 +52,11 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
 
-        <!-- La autoridad lleva el applicationId para que la versión de debug y la
-             de release puedan estar instaladas a la vez: dos apps no pueden
-             declarar el mismo provider. -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.updates"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/update_paths" />
-        </provider>
+        <!-- Por dónde contesta PackageInstaller a la sesión de actualización. No
+             se exporta: solo lo invoca el PendingIntent que crea la propia app. -->
+        <receiver
+            android:name=".update.InstallResultReceiver"
+            android:exported="false" />
 
     </application>
 

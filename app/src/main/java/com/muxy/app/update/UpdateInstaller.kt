@@ -1,13 +1,16 @@
 package com.muxy.app.update
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
-import androidx.core.content.FileProvider
-import com.muxy.app.BuildConfig
 import com.muxy.app.download.HttpFetcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -59,17 +62,46 @@ class UpdateInstaller(
         error("inalcanzable")
     }
 
-    fun install(apk: File) {
-        // El instalador corre en otro proceso y no puede leer la caché de la app,
-        // así que el archivo viaja como content:// con permiso de lectura.
-        val uri = FileProvider.getUriForFile(context, "${BuildConfig.APPLICATION_ID}.updates", apk)
+    /**
+     * Instala por `PackageInstaller`, no lanzando un `ACTION_VIEW` con el APK.
+     *
+     * Aquello abre un "Abrir con" en cuanto hay otra app instalada que diga
+     * entender los APK —un explorador de archivos, un editor de documentos—, y
+     * elegir a mano entre iconos no es lo que se espera al tocar "Actualizar".
+     * Con la sesión, la siguiente pantalla es directamente la del sistema.
+     *
+     * El archivo se copia dentro de la sesión, así que no hace falta compartirlo
+     * por `FileProvider`: el instalador ya no lee la caché de la app.
+     */
+    suspend fun install(apk: File) = withContext(Dispatchers.IO) {
+        val installer = context.packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(
+            PackageInstaller.SessionParams.MODE_FULL_INSTALL,
+        )
 
-        val intent = Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, "application/vnd.android.package-archive")
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val sessionId = installer.createSession(params)
+        installer.openSession(sessionId).use { session ->
+            session.openWrite("muxy", 0, apk.length()).use { output ->
+                apk.inputStream().use { it.copyTo(output) }
+                session.fsync(output)
+            }
 
-        context.startActivity(intent)
+            // Mutable a propósito: el sistema mete en este intent el resultado y,
+            // si hace falta confirmación, la pantalla que hay que abrir.
+            val mutable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                PendingIntent.FLAG_MUTABLE
+            } else {
+                0
+            }
+            val callback = PendingIntent.getBroadcast(
+                context,
+                sessionId,
+                Intent(context, InstallResultReceiver::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or mutable,
+            )
+
+            session.commit(callback.intentSender)
+        }
     }
 
     private companion object {
