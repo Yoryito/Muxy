@@ -17,6 +17,20 @@
     <string name="action_next">Siguiente</string>
     <string name="action_previous">Anterior</string>
     <string name="action_retry">Reintentar</string>
+    <string name="action_download">Descargar</string>
+    <string name="search_clear">Borrar búsqueda</string>
+
+    <string name="search_no_results_title">Pochi no ha encontrado nada</string>
+    <string name="search_no_results_body">Prueba con otras palabras o añade el nombre del artista.</string>
+
+    <string name="search_error_network_title">No se llega al estanque</string>
+    <string name="search_error_network_body">Comprueba tu conexión y vuelve a intentarlo.</string>
+
+    <string name="search_error_ratelimited_title">YouTube nos ha frenado</string>
+    <string name="search_error_ratelimited_body">Han sido demasiadas búsquedas seguidas. Espera un rato antes de volver.</string>
+
+    <string name="search_error_extraction_title">La búsqueda no funciona</string>
+    <string name="search_error_extraction_body">YouTube ha cambiado algo por dentro y la app necesita una actualización.</string>
 
     <string name="playback_channel_name">Reproducción</string>
     <string name="unknown_artist">Artista desconocido</string>

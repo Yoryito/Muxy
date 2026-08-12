@@ -4,6 +4,8 @@ import android.content.Context
 import com.muxy.app.data.MuxyDatabase
 import com.muxy.app.data.MusicLibrary
 import com.muxy.app.playback.PlayerConnection
+import com.muxy.app.youtube.NewPipeAudioResolver
+import com.muxy.app.youtube.YoutubeAudioResolver
 
 /**
  * Contenedor de dependencias hecho a mano. La app es pequeña y con esto basta;
@@ -18,4 +20,6 @@ class AppContainer(context: Context) {
     }
 
     val player: PlayerConnection by lazy { PlayerConnection(appContext) }
+
+    val youtube: YoutubeAudioResolver by lazy { NewPipeAudioResolver() }
 }

@@ -32,6 +32,8 @@ import com.muxy.app.ui.components.PochiPose
 import com.muxy.app.ui.library.LibraryScreen
 import com.muxy.app.ui.library.LibraryViewModel
 import com.muxy.app.ui.player.MiniPlayer
+import com.muxy.app.ui.search.SearchScreen
+import com.muxy.app.ui.search.SearchViewModel
 import com.muxy.app.ui.theme.MuxyTheme
 
 class MainActivity : ComponentActivity() {
@@ -44,9 +46,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             MuxyTheme {
                 MuxyApp(
-                    viewModel(
+                    libraryViewModel = viewModel(
                         factory = LibraryViewModel.Factory(container.library, container.player),
-                    )
+                    ),
+                    searchViewModel = viewModel(
+                        factory = SearchViewModel.Factory(container.youtube),
+                    ),
                 )
             }
         }
@@ -59,11 +64,15 @@ private enum class Destination(val labelRes: Int) {
 }
 
 @Composable
-private fun MuxyApp(viewModel: LibraryViewModel) {
+private fun MuxyApp(
+    libraryViewModel: LibraryViewModel,
+    searchViewModel: SearchViewModel,
+) {
     var current by rememberSaveable { mutableStateOf(Destination.Library) }
 
-    val songs by viewModel.songs.collectAsStateWithLifecycle()
-    val playback by viewModel.playback.collectAsStateWithLifecycle()
+    val songs by libraryViewModel.songs.collectAsStateWithLifecycle()
+    val playback by libraryViewModel.playback.collectAsStateWithLifecycle()
+    val search by searchViewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -71,8 +80,8 @@ private fun MuxyApp(viewModel: LibraryViewModel) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 MiniPlayer(
                     state = playback,
-                    onTogglePlayPause = viewModel::togglePlayPause,
-                    onNext = viewModel::next,
+                    onTogglePlayPause = libraryViewModel::togglePlayPause,
+                    onNext = libraryViewModel::next,
                 )
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -114,15 +123,16 @@ private fun MuxyApp(viewModel: LibraryViewModel) {
             Destination.Library -> LibraryScreen(
                 songs = songs,
                 playingSongId = playback.songId,
-                onPlay = viewModel::play,
+                onPlay = libraryViewModel::play,
                 contentPadding = innerPadding,
             )
 
-            Destination.Search -> PochiEmptyState(
-                pose = PochiPose.Curious,
-                title = stringResource(R.string.search_empty_title),
-                body = stringResource(R.string.search_empty_body),
-                modifier = Modifier.padding(innerPadding),
+            Destination.Search -> SearchScreen(
+                state = search,
+                onQueryChange = searchViewModel::onQueryChange,
+                onRetry = searchViewModel::retry,
+                onDownload = searchViewModel::onDownloadRequested,
+                contentPadding = innerPadding,
             )
         }
     }
