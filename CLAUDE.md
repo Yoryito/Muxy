@@ -146,7 +146,22 @@ Detalles del camino de actualización que conviene no deshacer:
 - La comprobación automática es **una por arranque**, no una por composición: el `LaunchedEffect` que la lanza vuelve a correr al girar la pantalla.
 - **El aviso emergente vive en `MainActivity`, no en la pantalla de ajustes**, para que salga esté donde esté el usuario. La comprobación a mano no lo abre: quien ha ido a buscarla ya está mirando la respuesta en ajustes.
 
-**Ojo con probar esto en debug:** el build de debug es otro `applicationId` (`com.muxy.app.debug`) y va sin firmar con la clave de release, así que puede comprobar y descargar, pero lo que instale será una app aparte. El camino de actualización de verdad solo se prueba sobre un APK de release instalado.
+**Ojo con probar esto en debug:** el build de debug es otro `applicationId` (`com.muxy.app.debug`) y va sin firmar con la clave de release, así que puede comprobar y descargar, pero lo que instale será una app aparte. El camino de actualización de verdad solo se prueba sobre un APK de release instalado. La forma limpia de probarlo es compilar un APK con una versión *anterior* a la publicada, instalarlo y dejar que se actualice solo.
+
+Los dos son apps distintas para Android, así que **no comparten librería**: las canciones descargadas en la de debug no aparecen en la de release.
+
+### Play Protect se mete en medio, y no hay nada que tocar en el código
+
+Al instalar (la primera vez y en cada actualización) sale un aviso de Google Play Protect: *"Aplicación bloqueada para proteger tu dispositivo — Play Protect no conoce ninguna otra aplicación de este desarrollador"*. Es lo que le pasa a cualquier APK firmado con una clave que Google no ha visto antes; no significa que algo esté mal en la app ni se arregla firmando distinto.
+
+La salida está escondida: **"Más detalles" → "Instalar de todas formas"**. Conviene decírselo a quien reciba la app, porque el botón grande y azul es el que *no* instala.
+
+Instrucciones para instalarla por primera vez en otro móvil:
+
+1. Abrir https://github.com/Yoryito/Muxy/releases/latest y descargar el `.apk`.
+2. Aceptar que el navegador instale apps desconocidas, si lo pide.
+3. En el aviso de Play Protect: "Más detalles" → "Instalar de todas formas".
+4. Ya dentro, la primera actualización pedirá el permiso de instalar apps desconocidas **para Muxy** (la app avisa con un mensaje antes de abrir esa pantalla). A partir de ahí, las siguientes solo son "Actualizar".
 
 ## Estado actual
 
