@@ -29,7 +29,9 @@ Lo que hay que **evitar** activamente (look de "AI slop"): degradados morados/az
 
 - La fuente de verdad de la paleta y tipografía es `app/src/main/java/.../ui/theme/`. No hardcodear colores en las pantallas.
 - **Dynamic color de Android está desactivado a propósito** para que el tema sea idéntico en todos los dispositivos. No reactivarlo.
-- La ranita mascota aparece solo donde cumple una función (estados vacíos, error, éxito), nunca como adorno suelto.
+- Pochi aparece solo donde cumple una función (estados vacíos, error, éxito), nunca como adorno suelto. Ver la sección "Pochi" más abajo.
+- La muesca del nenúfar (`LilyPadShape`) tiene que ser **estrecha**: una cuña ancha convierte el nenúfar en un Pac-Man. Y donde se recorta sobre un fondo, recortarla de todas las capas deja ver el fondo de la pantalla por el hueco.
+- Los contenedores de acento del modo oscuro tienen que ser tonos oscuros de verdad. Reutilizar un tono medio como fondo sobre el estanque nocturno queda chillón.
 
 ## Entorno de desarrollo
 
@@ -60,24 +62,43 @@ Cuando salga la plataforma android-37 estable y KSP alcance a Kotlin 2.4, se pue
 
 ## Comandos
 
+Hay que exportar `JAVA_HOME` antes de cualquier comando de Gradle, y `adb` no está en el PATH por defecto:
+
 ```bash
-./gradlew assembleDebug          # compilar APK de debug
+export JAVA_HOME="F:/Java Open JDK/Hotspot"
+export PATH="$PATH:/f/03_IA/Tools/Android/Sdk/platform-tools"
 ./gradlew installDebug           # compilar e instalar en el móvil conectado
-adb logcat -s Muxy               # ver logs de la app
+adb logcat -s Muxy               # ver los logs de la app
 ```
+
+El id de aplicación en debug lleva sufijo: `com.muxy.app.debug`.
+
+```bash
+adb shell am start -n com.muxy.app.debug/com.muxy.app.MainActivity
+adb exec-out screencap -p > captura.png
+```
+
+Para capturas usar `adb exec-out`, no `adb shell screencap` con una ruta: Git Bash convierte `/sdcard/...` a una ruta de Windows y el comando falla de forma confusa. Lo mismo con cualquier ruta del dispositivo — hay que envolverla con `MSYS_NO_PATHCONV=1`, o usar PowerShell para los `adb push`.
 
 ## Puntos frágiles conocidos
 
-- **La extracción de YouTube se romperá periódicamente.** Es esperado, no un bug puntual. Cuando pase: subir la versión de NewPipeExtractor en `gradle/libs.versions.toml`; si eso no basta, la interfaz `YoutubeAudioResolver` permite cambiar de backend tocando un solo sitio.
+- **La extracción de YouTube se romperá periódicamente.** Es esperado, no un bug puntual. La señal es `ResolveError.ExtractionFailed` apareciendo de golpe en todas las búsquedas (se registra con un aviso explícito en logcat). Cuando pase: subir `newpipeExtractor` en `gradle/libs.versions.toml`; si eso no basta, la interfaz `YoutubeAudioResolver` permite cambiar de backend (por ejemplo a yt-dlp) tocando un solo archivo.
+- **El captcha de YouTube (HTTP 429) no es un fallo de red.** Se distingue a propósito como `ResolveError.RateLimited`, porque reintentar solo empeora el bloqueo. Por eso la búsqueda lleva debounce: sin él, cada pulsación sería una petición.
 - Salida solo en M4A. Si algún día hiciera falta MP3, implicaría reintroducir FFmpeg y su carga de mantenimiento.
 
 ## Estado actual
 
-Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · **3 búsqueda YouTube (siguiente)** · 4 pipeline de descarga · 5 pulido · 6 auto-actualización · 7 (opcional) Spotify.
+Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · **4 pipeline de descarga (siguiente)** · 5 pulido · 6 auto-actualización · 7 (opcional) Spotify.
 
 Cada fase termina con prueba manual en el móvil real por USB antes de pasar a la siguiente. Móvil de pruebas: Samsung Galaxy A55 (`SM_A556B`).
 
-Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano, controles en notificación y pantalla de bloqueo, mini-reproductor.
+Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, y búsqueda real en YouTube con resolución de la pista de audio.
+
+**Pendiente inmediato — crear el repositorio en GitHub.** El repo local ya existe con todos los commits hechos; falta solo crear el remoto y subirlo. La cuenta `Yoryito` ya está autenticada en `gh` (scopes `repo`, `workflow`), así que basta con `gh repo create`. Preguntar antes si lo quiere privado o público; el plan asumía privado. Hace falta de todos modos para la fase 6, que distribuye el APK vía GitHub Releases.
+
+### Qué queda por hacer en la fase 4
+
+El botón de descarga de la pantalla de búsqueda **todavía no descarga**: `SearchViewModel.onDownloadRequested` solo resuelve la pista y la escribe en el log, para haber podido verificar la extracción por separado. La fase 4 sustituye eso por el `DownloadWorker` real (descargar → transcodificar a M4A con Media3 Transformer → etiquetar con eAlvaTag → insertar en Room).
 
 **Truco de pruebas:** `MusicLibrary.sync()` da de alta cualquier audio que aparezca en la carpeta de música de la app, así que se pueden meter canciones sin pasar por la descarga:
 
@@ -87,6 +108,15 @@ adb push "cancion.wav" /sdcard/Android/data/com.muxy.app.debug/files/music/
 
 ## Pochi
 
-La mascota se llama **Pochi**. Está dibujada en Canvas (`ui/components/Pochi.kt`), no como vector estático, porque así se animan las partes por separado: flota, respira y parpadea con periodos distintos para que los ciclos no caigan en fase.
+La mascota se llama **Pochi** y lleva un caracol en la cabeza. Está dibujada en Canvas (`ui/components/Pochi.kt`), no como vector estático, porque así se animan las partes por separado.
 
-Es deliberadamente regordeta —más ancha que alta— y las dos poses comparten el mismo cuerpo para que sea reconociblemente la misma rana. Al tocar la cara hay que respetar el aire entre la boca y la tripa, y mantener los mofletes dentro del contorno del cuerpo: ahí es donde los detalles se solapaban antes.
+Estilo: ilustración suave y pastel, cuerpo con degradado vertical y contorno fino, cara mínima (ojos de punto y boca). **La expresividad la lleva el movimiento, no el detalle del dibujo** — por eso no hace falta más definición en la cara.
+
+Reglas que costó descubrir y conviene no romper:
+
+- **Lo que la hace leer como rana y no como una bola** son tres cosas juntas: los ojos montados como bultos que sobresalen por encima de la cabeza, el cuerpo más ancho que alto, y la boca ancha. Sin los bultos vuelve a parecer una pelota con ojos.
+- Cuerpo y bultos se pintan como **una sola silueta** unida con `PathOperation.Union`. Dibujarlos por separado deja el contorno de cada bulto cruzando la cabeza.
+- Respetar el aire entre la boca y la tripa, y mantener los mofletes dentro del contorno: ahí es donde los detalles se pisaban.
+- Las patas van **abiertas y asomando por fuera** del cuerpo; metidas dentro no aportan nada a la silueta. Unos bracitos a media altura se leen como orejas — se probó y se quitaron.
+- Las animaciones (flotar, respirar, parpadear, y el balanceo propio del caracol) usan **periodos distintos a propósito** para que nunca caigan en fase y el bucle no se note.
+- Las dos poses comparten el mismo cuerpo, para que sea reconociblemente la misma rana.
