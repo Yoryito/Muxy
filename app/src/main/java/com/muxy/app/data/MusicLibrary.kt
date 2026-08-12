@@ -5,6 +5,7 @@ import android.media.MediaMetadataRetriever
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -27,6 +28,17 @@ class MusicLibrary(
     val coverDir: File
         get() = File(context.getExternalFilesDir(null), "covers").apply { mkdirs() }
 
+    /**
+     * Donde se cocinan las descargas antes de entrar en la librería.
+     *
+     * Está fuera de [musicDir] porque [sync] da de alta cualquier audio que
+     * encuentre ahí, y un archivo a medio convertir no es una canción todavía.
+     * Comparte sistema de archivos con [musicDir], así que el paso final es un
+     * renombrado atómico y no una copia.
+     */
+    val stagingDir: File
+        get() = File(context.getExternalFilesDir(null), "staging").apply { mkdirs() }
+
     fun observeSongs(): Flow<List<Song>> = dao.observeAll()
 
     suspend fun songById(id: Long): Song? = dao.byId(id)
@@ -34,7 +46,18 @@ class MusicLibrary(
     suspend fun isAlreadyDownloaded(sourceId: String): Boolean =
         withContext(Dispatchers.IO) { dao.bySourceId(sourceId) != null }
 
-    suspend fun add(song: Song): Long = withContext(Dispatchers.IO) { dao.insert(song) }
+    /** Qué vídeos ya están en la librería, para no ofrecerlos otra vez al buscar. */
+    fun observeDownloadedIds(): Flow<Set<String>> = dao.observeSourceIds().map { it.toSet() }
+
+    /**
+     * Da de alta una canción, reemplazando la fila que ya hubiera para ese
+     * archivo. Lo segundo importa porque [sync] puede haber registrado el mismo
+     * archivo por su cuenta, y sin esto quedarían dos filas idénticas.
+     */
+    suspend fun add(song: Song): Long = withContext(Dispatchers.IO) {
+        val existing = dao.byFilePath(song.filePath)
+        dao.insert(if (existing == null) song else song.copy(id = existing.id))
+    }
 
     suspend fun remove(song: Song) = withContext(Dispatchers.IO) {
         File(song.filePath).delete()

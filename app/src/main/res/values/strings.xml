@@ -32,6 +32,27 @@
     <string name="search_error_extraction_title">La búsqueda no funciona</string>
     <string name="search_error_extraction_body">YouTube ha cambiado algo por dentro y la app necesita una actualización.</string>
 
+    <string name="download_channel_name">Descargas</string>
+    <string name="download_channel_description">Avance de las canciones que Pochi está trayendo.</string>
+    <string name="download_generic_title">Trayendo una canción</string>
+
+    <string name="download_stage_resolving">Buscando el audio…</string>
+    <string name="download_stage_downloading">Descargando…</string>
+    <string name="download_stage_converting">Convirtiendo…</string>
+    <string name="download_stage_tagging">Guardando en la librería…</string>
+
+    <string name="download_queued">En cola</string>
+    <string name="download_done">Ya en tu librería</string>
+    <string name="download_cancel">Cancelar descarga</string>
+    <string name="download_retry">Reintentar descarga</string>
+
+    <string name="download_error_ratelimited">YouTube nos ha frenado. Espera un rato.</string>
+    <string name="download_error_network">Se cortó la conexión.</string>
+    <string name="download_error_unavailable">Este vídeo no se puede descargar.</string>
+    <string name="download_error_extraction">La descarga no funciona: la app necesita una actualización.</string>
+    <string name="download_error_conversion">El audio bajó, pero no se pudo convertir.</string>
+    <string name="download_error_storage">No se pudo guardar el archivo.</string>
+
     <string name="playback_channel_name">Reproducción</string>
     <string name="unknown_artist">Artista desconocido</string>
 </resources>

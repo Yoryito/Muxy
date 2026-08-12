@@ -1,9 +1,13 @@
 package com.muxy.app
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -37,9 +41,16 @@ import com.muxy.app.ui.search.SearchViewModel
 import com.muxy.app.ui.theme.MuxyTheme
 
 class MainActivity : ComponentActivity() {
+
+    // Sin este permiso la descarga funciona igual, pero pierde su notificación
+    // de progreso — y con ella el aviso de que algo sigue pasando en segundo plano.
+    private val askNotifications =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        requestNotificationPermission()
 
         val container = (application as MuxyApplication).container
 
@@ -50,11 +61,22 @@ class MainActivity : ComponentActivity() {
                         factory = LibraryViewModel.Factory(container.library, container.player),
                     ),
                     searchViewModel = viewModel(
-                        factory = SearchViewModel.Factory(container.youtube),
+                        factory = SearchViewModel.Factory(
+                            container.youtube,
+                            container.downloads,
+                            container.library,
+                        ),
                     ),
                 )
             }
         }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }
 
@@ -132,6 +154,7 @@ private fun MuxyApp(
                 onQueryChange = searchViewModel::onQueryChange,
                 onRetry = searchViewModel::retry,
                 onDownload = searchViewModel::onDownloadRequested,
+                onCancelDownload = searchViewModel::onCancelRequested,
                 contentPadding = innerPadding,
             )
         }

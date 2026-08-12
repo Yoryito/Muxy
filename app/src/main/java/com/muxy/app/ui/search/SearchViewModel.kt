@@ -4,6 +4,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.muxy.app.data.MusicLibrary
+import com.muxy.app.download.DownloadQueue
+import com.muxy.app.download.DownloadStatus
 import com.muxy.app.youtube.ResolveError
 import com.muxy.app.youtube.YoutubeAudioResolver
 import com.muxy.app.youtube.YoutubeResult
@@ -35,16 +38,36 @@ data class SearchUiState(
     val failure: SearchFailure? = null,
     /** Cierto cuando una búsqueda terminó sin resultados. */
     val emptyResult: Boolean = false,
+    /** Estado de las descargas en marcha, por id de vídeo. */
+    val downloads: Map<String, DownloadStatus> = emptyMap(),
+    /** Vídeos que ya están guardados: no tiene sentido volver a bajarlos. */
+    val inLibrary: Set<String> = emptySet(),
 )
 
 class SearchViewModel(
     private val resolver: YoutubeAudioResolver,
+    private val downloads: DownloadQueue,
+    library: MusicLibrary,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SearchUiState())
     val state: StateFlow<SearchUiState> = _state.asStateFlow()
 
     private var searchJob: Job? = null
+
+    init {
+        // Las descargas viven en WorkManager, no aquí: esto solo las mira.
+        viewModelScope.launch {
+            downloads.statuses().collect { statuses ->
+                _state.update { it.copy(downloads = statuses) }
+            }
+        }
+        viewModelScope.launch {
+            library.observeDownloadedIds().collect { ids ->
+                _state.update { it.copy(inLibrary = ids) }
+            }
+        }
+    }
 
     fun onQueryChange(query: String) {
         _state.update { it.copy(query = query) }
@@ -67,21 +90,21 @@ class SearchViewModel(
     }
 
     /**
-     * Fase 3: solo resuelve la pista y la registra en el log, para comprobar
-     * que la extracción funciona antes de montar la descarga encima.
+     * Encola la descarga y se desentiende. Todo el trabajo —resolver, bajar,
+     * convertir, etiquetar— ocurre en el worker, para que siga aunque el usuario
+     * cierre la app.
      */
     fun onDownloadRequested(result: YoutubeResult) {
-        viewModelScope.launch {
-            runCatching { resolver.resolve(result.videoId) }
-                .onSuccess { track ->
-                    Log.i(
-                        TAG,
-                        "Resuelto '${track.title}' — ${track.audio.format} " +
-                            "${track.audio.bitrateKbps}kbps · ${track.audio.url.take(90)}…",
-                    )
-                }
-                .onFailure { Log.w(TAG, "No se pudo resolver ${result.videoId}", it) }
+        val current = _state.value
+        if (result.videoId in current.inLibrary) return
+        when (current.downloads[result.videoId]) {
+            DownloadStatus.Queued, is DownloadStatus.Running, DownloadStatus.Done -> return
+            else -> downloads.enqueue(result)
         }
+    }
+
+    fun onCancelRequested(result: YoutubeResult) {
+        downloads.cancel(result.videoId)
     }
 
     private suspend fun runSearch(query: String) {
@@ -121,9 +144,13 @@ class SearchViewModel(
         else -> SearchFailure.Extraction
     }
 
-    class Factory(private val resolver: YoutubeAudioResolver) : ViewModelProvider.Factory {
+    class Factory(
+        private val resolver: YoutubeAudioResolver,
+        private val downloads: DownloadQueue,
+        private val library: MusicLibrary,
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            SearchViewModel(resolver) as T
+            SearchViewModel(resolver, downloads, library) as T
     }
 }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -35,12 +36,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import com.muxy.app.R
 import com.muxy.app.playback.PlaybackState
 import com.muxy.app.ui.components.LilyPadFrame
+import java.io.File
 
 /**
  * Reproductor compacto anclado sobre la barra de navegación.
@@ -85,7 +89,18 @@ fun MiniPlayer(
                         modifier = Modifier.size(44.dp),
                         notchAngle = 315f,
                         background = MaterialTheme.colorScheme.primaryContainer,
-                    )
+                    ) {
+                        // Sin carátula el nenúfar se queda liso, que ya es una
+                        // ilustración; no hace falta rellenarlo con un icono.
+                        if (state.coverArtPath != null) {
+                            AsyncImage(
+                                model = File(state.coverArtPath),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
 
                     Spacer(Modifier.width(12.dp))
 

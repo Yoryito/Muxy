@@ -22,6 +22,7 @@ data class PlaybackState(
     val isPlaying: Boolean = false,
     val positionMs: Long = 0,
     val durationMs: Long = 0,
+    val coverArtPath: String? = null,
 )
 
 /**
@@ -100,6 +101,7 @@ class PlayerConnection(private val context: Context) {
             isPlaying = c.isPlaying,
             positionMs = c.currentPosition.coerceAtLeast(0),
             durationMs = c.duration.takeIf { it > 0 } ?: 0,
+            coverArtPath = c.mediaMetadata.artworkUri?.path,
         )
     }
 

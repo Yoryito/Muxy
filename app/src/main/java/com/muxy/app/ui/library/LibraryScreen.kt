@@ -21,14 +21,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import com.muxy.app.R
 import com.muxy.app.data.Song
 import com.muxy.app.ui.components.LilyPadFrame
 import com.muxy.app.ui.components.PochiEmptyState
 import com.muxy.app.ui.components.PochiPose
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 @Composable
@@ -91,16 +94,27 @@ private fun SongRow(
                 MaterialTheme.colorScheme.primaryContainer
             },
         ) {
-            Icon(
-                imageVector = Icons.Rounded.MusicNote,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = if (isPlaying) {
-                    MaterialTheme.colorScheme.onTertiaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                },
-            )
+            // Las canciones importadas a mano no traen carátula; para esas el
+            // nenúfar de color ya es la ilustración.
+            if (song.coverArtPath != null) {
+                AsyncImage(
+                    model = File(song.coverArtPath),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = if (isPlaying) {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    },
+                )
+            }
         }
 
         Spacer(Modifier.width(14.dp))

@@ -85,22 +85,45 @@ Para capturas usar `adb exec-out`, no `adb shell screencap` con una ruta: Git Ba
 - **La extracción de YouTube se romperá periódicamente.** Es esperado, no un bug puntual. La señal es `ResolveError.ExtractionFailed` apareciendo de golpe en todas las búsquedas (se registra con un aviso explícito en logcat). Cuando pase: subir `newpipeExtractor` en `gradle/libs.versions.toml`; si eso no basta, la interfaz `YoutubeAudioResolver` permite cambiar de backend (por ejemplo a yt-dlp) tocando un solo archivo.
 - **El captcha de YouTube (HTTP 429) no es un fallo de red.** Se distingue a propósito como `ResolveError.RateLimited`, porque reintentar solo empeora el bloqueo. Por eso la búsqueda lleva debounce: sin él, cada pulsación sería una petición.
 - Salida solo en M4A. Si algún día hiciera falta MP3, implicaría reintroducir FFmpeg y su carga de mantenimiento.
+- **eAlvaTag no sabe etiquetar lo que sale de Media3 Transformer sin retocar antes las cabeceras.** Ver `download/Mp4Headers.kt`: son dos incompatibilidades reales, no una manía, y sin ellas la descarga funciona pero el archivo se queda sin metadatos. Detalle abajo.
+
+## Etiquetado: por qué existe `Mp4Headers`
+
+Los MP4 que produce Transformer son válidos —cualquier reproductor los abre— pero eAlvaTag, pensada para archivos de iTunes, se atraganta con dos cosas. `Mp4Headers` las corrige tocando **solo cabeceras**, sin mover un byte de audio, y lo deja como estaba al terminar.
+
+1. **`mdat` con tamaño de 64 bits.** Los muxers de Android (tanto el propio de Media3 como el del sistema) escriben el campo de tamaño a 1 y el tamaño real en los 8 bytes siguientes. eAlvaTag guarda el tamaño de caja en un `int` y no contempla esa variante: falla con *"This file does not appear to be an Mp4 file"*. Como la cabecera de 64 bits ocupa 16 bytes y la de 32 ocupa 8, los 8 sobrantes se convierten en una caja `free` vacía y el audio sigue empezando en el mismo desplazamiento — que es lo que importa, porque las tablas `stco` apuntan ahí.
+
+2. **La caja `free` gigante que deja el muxer.** Media3 reserva ~400 KB para el `moov` y lo que sobra queda como `free` entre `moov` y `mdat`. Al verlo, eAlvaTag intenta encajar los metadatos ahí sin mover nada ("Option 5"), le sale mal la cuenta y aborta con *"Cannot make changes to file"*. El truco es **renombrar esa caja a `skip`** — el estándar las define como equivalentes, pero eAlvaTag no reconoce `skip` —, con lo que se va a su camino normal de reescribir el archivo corrigiendo los `stco`, que es el que usa con cualquier MP4 de iTunes y sí funciona.
+
+Cambiar de muxer **no** arregla nada: se probó `FrameworkMuxer` (el del sistema) y es peor, porque además escribe un `moov/udta` que eAlvaTag rechaza al leer.
+
+Para depurar esto: eAlvaTag registra la excepción real con ealvalog y en Android no sale por ningún lado, así que el camino rápido es sacar el `.m4a` del móvil con `adb pull` y reproducir el fallo en la JVM de escritorio con `Loggers.INSTANCE.setFactory(StdoutLoggerFactory.INSTANCE)`, que sí imprime la causa y la rama que eligió.
 
 ## Estado actual
 
-Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · **4 pipeline de descarga (siguiente)** · 5 pulido · 6 auto-actualización · 7 (opcional) Spotify.
+Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · 4 pipeline de descarga ✅ · **5 pulido (siguiente)** · 6 auto-actualización · 7 (opcional) Spotify.
 
 Cada fase termina con prueba manual en el móvil real por USB antes de pasar a la siguiente. Móvil de pruebas: Samsung Galaxy A55 (`SM_A556B`).
 
-Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, y búsqueda real en YouTube con resolución de la pista de audio.
+Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, búsqueda real en YouTube, y el pipeline completo de descarga (resolver → bajar → convertir a M4A → etiquetar con carátula → dar de alta), con avance por etapas en la fila de resultados, notificación de progreso y cancelación.
 
 **Repositorio remoto:** https://github.com/Yoryito/Muxy — **público**, rama por defecto `master`. Se eligió público a propósito (el plan original asumía privado). La fase 6 distribuirá el APK desde sus GitHub Releases, que al ser públicas se pueden descargar sin token.
 
 Al ser público, todo lo que se commitee es visible: este mismo CLAUDE.md incluido. No meter nunca el keystore de release ni `local.properties` (ya están en `.gitignore`).
 
-### Qué queda por hacer en la fase 4
+### Cómo está montada la descarga
 
-El botón de descarga de la pantalla de búsqueda **todavía no descarga**: `SearchViewModel.onDownloadRequested` solo resuelve la pista y la escribe en el log, para haber podido verificar la extracción por separado. La fase 4 sustituye eso por el `DownloadWorker` real (descargar → transcodificar a M4A con Media3 Transformer → etiquetar con eAlvaTag → insertar en Room).
+`DownloadQueue` encola un `DownloadWorker` (WorkManager, en primer plano) por vídeo, con nombre único `download-<videoId>` y política `KEEP`: eso impide duplicar una descarga en marcha pero permite reintentar una que ya terminó. El estado que ve la interfaz **no se guarda en ningún sitio propio** — sale de `WorkManager.getWorkInfosFlow`, que persiste solo y por tanto sobrevive a cerrar la app.
+
+Decisiones que conviene no deshacer:
+
+- **La pista se resuelve dentro del worker**, no al pulsar el botón. Las URLs de googlevideo van firmadas y caducan en unas horas; resolver en la pantalla y descargar más tarde daría un 403 incomprensible.
+- **El archivo se cocina en `MusicLibrary.stagingDir` y solo al final se renombra** a la carpeta de música. `sync()` da de alta cualquier audio que encuentre ahí, así que un archivo a medio convertir se registraría como canción. El renombrado es atómico porque las dos carpetas están en el mismo sistema de archivos.
+- **Solo se reintenta el fallo de red.** Un captcha o una extracción rota no mejoran reintentando, y reintentar el captcha empeora el bloqueo.
+- `setForeground` va envuelto en `runCatching`: si Android no deja promocionar el worker (pasa al arrancar desde segundo plano en Android 12+), la descarga sigue, solo pierde la notificación. Y hay que declarar a mano `SystemForegroundService` con `foregroundServiceType="dataSync"` en el manifest, porque WorkManager lo declara sin tipo y desde Android 14 eso lanza excepción.
+- Los avances a la notificación llevan freno de tiempo (`MIN_REPORT_INTERVAL_MS`): el sistema estrangula las notificaciones que se refrescan demasiado seguido.
+- **`TrackNaming` limpia los títulos de YouTube** ("Artista - Canción (Official Video) [4K]") de forma deliberadamente conservadora: solo quita paréntesis que contengan una palabra de su lista de ruido, para no cargarse `(feat. X)`, `(Remix)` ni `(Acústico)`, que sí son parte del nombre. Los canales autogenerados se llaman `Artista - Topic` y son la mejor fuente de artista que hay.
+- Las miniaturas son 16:9 y las carátulas se pintan cuadradas, así que `CoverArt` recorta al centro antes de guardar.
 
 **Truco de pruebas:** `MusicLibrary.sync()` da de alta cualquier audio que aparezca en la carpeta de música de la app, así que se pueden meter canciones sin pasar por la descarga:
 

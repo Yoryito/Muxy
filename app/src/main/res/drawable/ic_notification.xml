@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Icono de la barra de estado: un nenúfar. Android lo pinta como silueta, así
+  que solo importa la forma — nada de color ni degradados.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M19.4,6.8 A9,9 0 1 0 19.4,17.2 L12,12 Z" />
+</vector>

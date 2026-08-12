@@ -19,6 +19,10 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE sourceId = :sourceId LIMIT 1")
     suspend fun bySourceId(sourceId: String): Song?
 
+    /** Solo los ids de origen: la pantalla de búsqueda no necesita más. */
+    @Query("SELECT sourceId FROM songs WHERE sourceId IS NOT NULL")
+    fun observeSourceIds(): Flow<List<String>>
+
     @Query("SELECT * FROM songs WHERE filePath = :filePath LIMIT 1")
     suspend fun byFilePath(filePath: String): Song?
 
