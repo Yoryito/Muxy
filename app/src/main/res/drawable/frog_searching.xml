@@ -6,18 +6,23 @@
     android:viewportWidth="180"
     android:viewportHeight="160">
 
-    <!-- Junco de fondo -->
+    <!-- Junco: separado de la rana para que no parezca que la toca -->
     <path
         android:strokeColor="#5E7F4F"
-        android:strokeAlpha="0.35"
-        android:strokeWidth="4"
+        android:strokeAlpha="0.55"
+        android:strokeWidth="5"
         android:strokeLineCap="round"
         android:fillColor="#00000000"
-        android:pathData="M148,142 C148,118 142,100 136,86" />
+        android:pathData="M162,144 C162,116 158,92 152,70" />
     <path
         android:fillColor="#8A6A4A"
+        android:fillAlpha="0.65"
+        android:pathData="M152,58 m-6,0 a6,13 0 1,0 12,0 a6,13 0 1,0 -12,0 Z" />
+    <!-- Hoja del junco -->
+    <path
+        android:fillColor="#5E7F4F"
         android:fillAlpha="0.4"
-        android:pathData="M136,86 m-5,-11 a5,11 0 1,0 10,0 a5,11 0 1,0 -10,0 Z" />
+        android:pathData="M160,116 C150,110 143,100 142,92 C150,94 158,104 160,116 Z" />
 
     <!-- Sombra en el suelo -->
     <path

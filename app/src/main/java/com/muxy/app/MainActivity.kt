@@ -18,7 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -43,7 +43,7 @@ private enum class Destination(val labelRes: Int) {
 
 @Composable
 private fun MuxyApp() {
-    var current by remember { mutableStateOf(Destination.Library) }
+    var current by rememberSaveable { mutableStateOf(Destination.Library) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
