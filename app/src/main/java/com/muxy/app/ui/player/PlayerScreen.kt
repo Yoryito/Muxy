@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
@@ -60,6 +61,7 @@ import coil3.compose.AsyncImage
 import com.muxy.app.R
 import com.muxy.app.playback.PlaybackState
 import com.muxy.app.playback.RepeatMode
+import com.muxy.app.playback.SleepTimerState
 import com.muxy.app.ui.components.LilyPadFrame
 import com.muxy.app.ui.components.formatDuration
 import com.muxy.app.ui.theme.LilyPadShape
@@ -76,6 +78,7 @@ import java.io.File
 @Composable
 fun PlayerScreen(
     state: PlaybackState,
+    sleepTimer: SleepTimerState,
     onCollapse: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
@@ -83,6 +86,9 @@ fun PlayerScreen(
     onSeek: (Long) -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
+    onSetSleepTimer: (Long) -> Unit,
+    onSetSleepTimerEndOfSong: () -> Unit,
+    onCancelSleepTimer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Opaca a propósito: es una capa sobre el resto de la app y cualquier
@@ -98,7 +104,13 @@ fun PlayerScreen(
                 .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            TopRow(onCollapse = onCollapse)
+            TopRow(
+                onCollapse = onCollapse,
+                sleepTimer = sleepTimer,
+                onSetSleepTimer = onSetSleepTimer,
+                onSetSleepTimerEndOfSong = onSetSleepTimerEndOfSong,
+                onCancelSleepTimer = onCancelSleepTimer,
+            )
 
             Spacer(Modifier.weight(1f))
 
@@ -155,7 +167,15 @@ fun PlayerScreen(
 }
 
 @Composable
-private fun TopRow(onCollapse: () -> Unit) {
+private fun TopRow(
+    onCollapse: () -> Unit,
+    sleepTimer: SleepTimerState,
+    onSetSleepTimer: (Long) -> Unit,
+    onSetSleepTimerEndOfSong: () -> Unit,
+    onCancelSleepTimer: () -> Unit,
+) {
+    var dialogOpen by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -176,6 +196,40 @@ private fun TopRow(onCollapse: () -> Unit) {
             text = stringResource(R.string.player_now_playing),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        IconButton(
+            onClick = { dialogOpen = true },
+            modifier = Modifier.align(Alignment.CenterEnd),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Bedtime,
+                contentDescription = stringResource(R.string.sleep_timer_button),
+                // Encendido cuando hay uno puesto, igual que aleatorio y repetir.
+                tint = if (sleepTimer is SleepTimerState.Off) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.tertiary
+                },
+            )
+        }
+    }
+
+    if (dialogOpen) {
+        SleepTimerDialog(
+            state = sleepTimer,
+            onSelectDuration = {
+                onSetSleepTimer(it)
+                dialogOpen = false
+            },
+            onSelectEndOfSong = {
+                onSetSleepTimerEndOfSong()
+                dialogOpen = false
+            },
+            onCancel = {
+                onCancelSleepTimer()
+                dialogOpen = false
+            },
+            onDismiss = { dialogOpen = false },
         )
     }
 }

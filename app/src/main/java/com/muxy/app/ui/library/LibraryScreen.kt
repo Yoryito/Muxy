@@ -178,8 +178,8 @@ fun LibraryScreen(
 }
 
 /**
- * Los tres órdenes, como fichas. Van en una fila que se desplaza porque en
- * pantallas estrechas con el texto grande del sistema no siempre caben las tres.
+ * Los órdenes, como fichas. Van en una fila que se desplaza porque en pantallas
+ * estrechas con el texto grande del sistema no siempre caben todas.
  */
 @Composable
 private fun SortRow(sort: LibrarySort, onSortChange: (LibrarySort) -> Unit) {
@@ -213,6 +213,8 @@ private fun SortRow(sort: LibrarySort, onSortChange: (LibrarySort) -> Unit) {
 
 private fun LibrarySort.labelRes(): Int = when (this) {
     LibrarySort.Recent -> R.string.library_sort_recent
+    LibrarySort.Oldest -> R.string.library_sort_oldest
     LibrarySort.Title -> R.string.library_sort_title
     LibrarySort.Artist -> R.string.library_sort_artist
+    LibrarySort.Duration -> R.string.library_sort_duration
 }

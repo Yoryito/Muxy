@@ -156,6 +156,7 @@ private fun MuxyApp(
     val libraryQuery by libraryViewModel.query.collectAsStateWithLifecycle()
     val librarySort by libraryViewModel.sort.collectAsStateWithLifecycle()
     val playback by libraryViewModel.playback.collectAsStateWithLifecycle()
+    val sleepTimer by libraryViewModel.sleepTimer.collectAsStateWithLifecycle()
     val search by searchViewModel.state.collectAsStateWithLifecycle()
 
     val playlists by playlistsViewModel.summaries.collectAsStateWithLifecycle()
@@ -272,6 +273,7 @@ private fun MuxyApp(
                             onPlayAll = playlistsViewModel::playAll,
                             onPlay = playlistsViewModel::play,
                             onRemoveSong = { playlistsViewModel.removeSong(playlist.id, it.id) },
+                            onReorder = { playlistsViewModel.reorder(playlist.id, it) },
                             onRename = { playlistsViewModel.rename(playlist.id, it) },
                             onDelete = { playlistsViewModel.delete(playlist.id) },
                             contentPadding = innerPadding,
@@ -320,6 +322,7 @@ private fun MuxyApp(
         ) {
             PlayerScreen(
                 state = playback,
+                sleepTimer = sleepTimer,
                 onCollapse = { playerOpen = false },
                 onTogglePlayPause = libraryViewModel::togglePlayPause,
                 onNext = libraryViewModel::next,
@@ -327,6 +330,9 @@ private fun MuxyApp(
                 onSeek = libraryViewModel::seekTo,
                 onToggleShuffle = libraryViewModel::toggleShuffle,
                 onCycleRepeat = libraryViewModel::cycleRepeat,
+                onSetSleepTimer = libraryViewModel::setSleepTimer,
+                onSetSleepTimerEndOfSong = libraryViewModel::setSleepTimerEndOfSong,
+                onCancelSleepTimer = libraryViewModel::cancelSleepTimer,
             )
         }
     }

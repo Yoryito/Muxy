@@ -55,4 +55,9 @@ class PlaylistRepository(private val dao: PlaylistDao) {
     suspend fun removeSong(playlistId: Long, songId: Long) = withContext(Dispatchers.IO) {
         dao.removeSong(playlistId, songId)
     }
+
+    /** Guarda el orden en que ha quedado la lista tras arrastrar una canción. */
+    suspend fun reorder(playlistId: Long, orderedSongIds: List<Long>) = withContext(Dispatchers.IO) {
+        dao.reorder(playlistId, orderedSongIds)
+    }
 }

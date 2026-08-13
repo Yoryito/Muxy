@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -72,4 +73,20 @@ interface PlaylistDao {
 
     @Query("DELETE FROM playlist_songs WHERE playlistId = :playlistId AND songId = :songId")
     suspend fun removeSong(playlistId: Long, songId: Long)
+
+    @Query(
+        "UPDATE playlist_songs SET position = :position WHERE playlistId = :playlistId AND songId = :songId",
+    )
+    suspend fun updatePosition(playlistId: Long, songId: Long, position: Int)
+
+    /**
+     * Reescribe el orden entero tras un arrastre. Va en una transacción para que
+     * una lista a medio reordenar nunca llegue a pintarse si algo falla a mitad.
+     */
+    @Transaction
+    suspend fun reorder(playlistId: Long, orderedSongIds: List<Long>) {
+        orderedSongIds.forEachIndexed { position, songId ->
+            updatePosition(playlistId, songId, position)
+        }
+    }
 }

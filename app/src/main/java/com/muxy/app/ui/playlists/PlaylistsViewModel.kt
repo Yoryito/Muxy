@@ -93,6 +93,10 @@ class PlaylistsViewModel(
         viewModelScope.launch { playlists.removeSong(playlistId, songId) }
     }
 
+    fun reorder(playlistId: Long, orderedSongIds: List<Long>) {
+        viewModelScope.launch { playlists.reorder(playlistId, orderedSongIds) }
+    }
+
     /** Reproduce la lista abierta empezando por [song]. */
     fun play(song: Song) {
         val queue = openSongs.value

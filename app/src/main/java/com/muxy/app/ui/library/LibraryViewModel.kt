@@ -7,6 +7,7 @@ import com.muxy.app.data.MusicLibrary
 import com.muxy.app.data.Song
 import com.muxy.app.playback.PlaybackState
 import com.muxy.app.playback.PlayerConnection
+import com.muxy.app.playback.SleepTimerState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,8 +25,12 @@ import java.text.Normalizer
 enum class LibrarySort {
     /** Lo último que ha traído Pochi, arriba. */
     Recent,
+
+    /** Lo primero que se descargó, arriba. */
+    Oldest,
     Title,
     Artist,
+    Duration,
 }
 
 class LibraryViewModel(
@@ -59,6 +64,7 @@ class LibraryViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     val playback: StateFlow<PlaybackState> = player.state
+    val sleepTimer: StateFlow<SleepTimerState> = player.sleepTimer
 
     init {
         player.connect()
@@ -100,6 +106,12 @@ class LibraryViewModel(
     fun toggleShuffle() = player.toggleShuffle()
 
     fun cycleRepeat() = player.cycleRepeat()
+
+    fun setSleepTimer(durationMs: Long) = player.setSleepTimer(durationMs)
+
+    fun setSleepTimerEndOfSong() = player.setSleepTimerEndOfSong()
+
+    fun cancelSleepTimer() = player.cancelSleepTimer()
 
     /**
      * Borra la canción del disco y de la base. Sale primero de la cola: si se
@@ -149,6 +161,7 @@ private fun LibrarySort.comparator(): Comparator<Song> {
     val collator = Collator.getInstance()
     return when (this) {
         LibrarySort.Recent -> compareByDescending<Song> { it.addedAt }
+        LibrarySort.Oldest -> compareBy<Song> { it.addedAt }
         LibrarySort.Title -> Comparator { a, b -> collator.compare(a.title, b.title) }
         // Sin artista se va al final, no al principio: son las importadas a mano
         // y no aportan nada arriba del todo.
@@ -161,5 +174,6 @@ private fun LibrarySort.comparator(): Comparator<Song> {
                     .takeIf { it != 0 } ?: collator.compare(a.title, b.title)
             }
         }
+        LibrarySort.Duration -> compareBy<Song> { it.durationMs }
     }
 }

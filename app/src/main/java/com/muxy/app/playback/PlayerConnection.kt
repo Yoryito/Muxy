@@ -10,9 +10,16 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
 import com.muxy.app.data.Song
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.io.File
 
 /** Cómo se encadena la cola al terminar una canción. */
@@ -25,6 +32,15 @@ enum class RepeatMode {
 
     /** Repite la canción actual indefinidamente. */
     One,
+}
+
+/** El temporizador de apagado, si hay uno puesto. */
+sealed interface SleepTimerState {
+    data object Off : SleepTimerState
+    data class Counting(val remainingMs: Long) : SleepTimerState
+
+    /** Se para al terminar la canción que suena ahora, sin cuenta atrás. */
+    data object EndOfSong : SleepTimerState
 }
 
 /** Lo que la interfaz necesita saber de la reproducción, y nada más. */
@@ -60,6 +76,26 @@ class PlayerConnection(private val context: Context) {
         override fun onEvents(player: Player, events: Player.Events) = refresh()
     }
 
+    // Vive tanto como la propia conexión: el temporizador tiene que seguir
+    // contando aunque la pantalla que lo puso se cierre o gire.
+    private val timerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var timerJob: Job? = null
+
+    private val _sleepTimer = MutableStateFlow<SleepTimerState>(SleepTimerState.Off)
+    val sleepTimer: StateFlow<SleepTimerState> = _sleepTimer.asStateFlow()
+
+    /**
+     * Solo se engancha en el modo "al terminar la canción". `AUTO` es la razón
+     * que Media3 da cuando una pista se acaba sola y pasa a la siguiente — con
+     * un salto manual o un `seek` no se dispara, que es justo lo que se quiere:
+     * saltar de canción a mano no debería cortar el temporizador.
+     */
+    private val endOfSongListener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) cancelSleepTimer(pause = true)
+        }
+    }
+
     fun connect() {
         if (controller != null) return
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
@@ -81,6 +117,7 @@ class PlayerConnection(private val context: Context) {
         controller?.removeListener(listener)
         controller?.release()
         controller = null
+        timerScope.cancel()
     }
 
     /** Reproduce [songs] empezando por [startIndex]. */
@@ -116,6 +153,47 @@ class PlayerConnection(private val context: Context) {
             Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
             else -> Player.REPEAT_MODE_OFF
         }
+    }
+
+    /** Pausa dentro de [durationMs]. Sustituye cualquier temporizador que hubiera puesto antes. */
+    fun setSleepTimer(durationMs: Long) {
+        clearTimer()
+        _sleepTimer.value = SleepTimerState.Counting(durationMs)
+        timerJob = timerScope.launch {
+            var remaining = durationMs
+            while (remaining > 0) {
+                delay(TIMER_TICK_MS.coerceAtMost(remaining))
+                remaining -= TIMER_TICK_MS
+                _sleepTimer.value = SleepTimerState.Counting(remaining.coerceAtLeast(0))
+            }
+            withController { pause() }
+            _sleepTimer.value = SleepTimerState.Off
+        }
+    }
+
+    /** Pausa en cuanto termine sola la canción que suena ahora. */
+    fun setSleepTimerEndOfSong() {
+        clearTimer()
+        _sleepTimer.value = SleepTimerState.EndOfSong
+        withController { addListener(endOfSongListener) }
+    }
+
+    /**
+     * Quita el temporizador sin pausar. [pause] se pone a `true` solo cuando lo
+     * llama el propio temporizador al cumplirse — desde fuera (botón "cancelar")
+     * nunca se quiere cortar lo que está sonando, solo dejar de esperar a que se
+     * pare sola.
+     */
+    fun cancelSleepTimer(pause: Boolean = false) {
+        clearTimer()
+        if (pause) withController { pause() }
+    }
+
+    private fun clearTimer() {
+        timerJob?.cancel()
+        timerJob = null
+        withController { removeListener(endOfSongListener) }
+        _sleepTimer.value = SleepTimerState.Off
     }
 
     /**
@@ -155,6 +233,10 @@ class PlayerConnection(private val context: Context) {
     private fun withController(action: MediaController.() -> Unit) {
         val c = controller
         if (c != null) action(c) else pending = action
+    }
+
+    private companion object {
+        const val TIMER_TICK_MS = 1_000L
     }
 }
 
