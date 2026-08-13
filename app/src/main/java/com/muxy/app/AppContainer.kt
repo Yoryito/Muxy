@@ -39,7 +39,7 @@ class AppContainer(context: Context) {
         PlaylistBackup(MuxyDatabase.get(appContext).playlistDao(), MuxyDatabase.get(appContext).songDao())
     }
 
-    val player: PlayerConnection by lazy { PlayerConnection(appContext) }
+    val player: PlayerConnection by lazy { PlayerConnection(appContext, library) }
 
     val youtube: YoutubeAudioResolver by lazy { NewPipeAudioResolver() }
 

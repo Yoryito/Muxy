@@ -33,6 +33,8 @@ data class Song(
      */
     @ColumnInfo(defaultValue = "0.0")
     val gainDb: Float = 0f,
+    /** Cuándo empezó a sonar por última vez. `null` si nunca se ha reproducido. */
+    val lastPlayedAt: Long? = null,
 )
 
 enum class SongSource {

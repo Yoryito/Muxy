@@ -41,6 +41,13 @@ class MusicLibrary(
 
     fun observeSongs(): Flow<List<Song>> = dao.observeAll()
 
+    /** Las últimas [limit] canciones escuchadas, para la sección de recientes del inicio. */
+    fun observeRecentlyPlayed(limit: Int = 15): Flow<List<Song>> = dao.observeRecentlyPlayed(limit)
+
+    /** Se llama cada vez que una canción arranca a sonar, la haya elegido el usuario o le toque por la cola. */
+    suspend fun markPlayed(songId: Long, timestamp: Long) =
+        withContext(Dispatchers.IO) { dao.markPlayed(songId, timestamp) }
+
     suspend fun songById(id: Long): Song? = dao.byId(id)
 
     suspend fun isAlreadyDownloaded(sourceId: String): Boolean =

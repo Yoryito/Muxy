@@ -10,6 +10,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
+import com.muxy.app.data.MusicLibrary
 import com.muxy.app.data.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -69,7 +70,7 @@ val PLAYBACK_SPEEDS = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
  * que el controlador exista se guardan y se ejecutan al conectar, en vez de
  * perderse en silencio.
  */
-class PlayerConnection(private val context: Context) {
+class PlayerConnection(private val context: Context, private val library: MusicLibrary) {
 
     private var controller: MediaController? = null
     private var pending: (MediaController.() -> Unit)? = null
@@ -79,11 +80,19 @@ class PlayerConnection(private val context: Context) {
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) = refresh()
+
+        // Cualquier transición cuenta como "escuchada", no solo la que elige el
+        // usuario a mano: saltar con siguiente/anterior o dejar que la cola
+        // avance sola es tan "escuchar" como tocar la canción en la librería.
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            mediaItem?.mediaId?.toLongOrNull()?.let { markPlayed(it) }
+        }
     }
 
     // Vive tanto como la propia conexión: el temporizador tiene que seguir
-    // contando aunque la pantalla que lo puso se cierre o gire.
-    private val timerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    // contando (y el historial de reproducciones registrándose) aunque la
+    // pantalla que los puso en marcha se cierre o gire.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var timerJob: Job? = null
 
     private val _sleepTimer = MutableStateFlow<SleepTimerState>(SleepTimerState.Off)
@@ -122,7 +131,7 @@ class PlayerConnection(private val context: Context) {
         controller?.removeListener(listener)
         controller?.release()
         controller = null
-        timerScope.cancel()
+        scope.cancel()
     }
 
     /** Reproduce [songs] empezando por [startIndex]. */
@@ -170,7 +179,7 @@ class PlayerConnection(private val context: Context) {
     fun setSleepTimer(durationMs: Long) {
         clearTimer()
         _sleepTimer.value = SleepTimerState.Counting(durationMs)
-        timerJob = timerScope.launch {
+        timerJob = scope.launch {
             var remaining = durationMs
             while (remaining > 0) {
                 delay(TIMER_TICK_MS.coerceAtMost(remaining))
@@ -240,6 +249,10 @@ class PlayerConnection(private val context: Context) {
             hasNext = c.hasNextMediaItem(),
             speed = c.playbackParameters.speed,
         )
+    }
+
+    private fun markPlayed(songId: Long) {
+        scope.launch { library.markPlayed(songId, System.currentTimeMillis()) }
     }
 
     private fun withController(action: MediaController.() -> Unit) {

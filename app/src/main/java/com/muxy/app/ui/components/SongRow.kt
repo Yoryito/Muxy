@@ -94,10 +94,14 @@ fun SongCover(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = 52.dp,
+    // La muesca crece con el radio (ver LilyPadShape): el defecto de 15° es fino
+    // a 52 dp, pero en carátulas más grandes hay que estrecharlo a mano.
+    notchWidth: Float = 15f,
 ) {
     LilyPadFrame(
         modifier = modifier.size(size),
         notchAngle = 300f + (song.id % 5) * 24f,
+        notchWidth = notchWidth,
         background = if (isPlaying) {
             MaterialTheme.colorScheme.tertiaryContainer
         } else {

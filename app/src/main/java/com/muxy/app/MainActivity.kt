@@ -208,6 +208,7 @@ private fun MuxyApp(
 
     val songs by libraryViewModel.songs.collectAsStateWithLifecycle()
     val libraryIsEmpty by libraryViewModel.libraryIsEmpty.collectAsStateWithLifecycle()
+    val recentlyPlayed by libraryViewModel.recentlyPlayed.collectAsStateWithLifecycle()
     val libraryQuery by libraryViewModel.query.collectAsStateWithLifecycle()
     val librarySort by libraryViewModel.sort.collectAsStateWithLifecycle()
     val librarySelectionMode by libraryViewModel.selectionMode.collectAsStateWithLifecycle()
@@ -296,6 +297,7 @@ private fun MuxyApp(
                 Destination.Library -> LibraryScreen(
                     songs = songs,
                     libraryIsEmpty = libraryIsEmpty,
+                    recentlyPlayed = recentlyPlayed,
                     query = libraryQuery,
                     sort = librarySort,
                     playingSongId = playback.songId,
@@ -306,6 +308,7 @@ private fun MuxyApp(
                     onQueryChange = libraryViewModel::onQueryChange,
                     onSortChange = libraryViewModel::onSortChange,
                     onPlay = libraryViewModel::play,
+                    onPlayRecent = libraryViewModel::playRecent,
                     onDelete = libraryViewModel::delete,
                     onTogglePlaylist = playlistsViewModel::toggleSong,
                     onCreatePlaylistWith = { name, songId ->

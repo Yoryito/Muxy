@@ -30,6 +30,13 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE filePath = :filePath LIMIT 1")
     suspend fun byFilePath(filePath: String): Song?
 
+    /** Para la sección de "recientes" del inicio: lo último escuchado, no lo último descargado. */
+    @Query("SELECT * FROM songs WHERE lastPlayedAt IS NOT NULL ORDER BY lastPlayedAt DESC LIMIT :limit")
+    fun observeRecentlyPlayed(limit: Int): Flow<List<Song>>
+
+    @Query("UPDATE songs SET lastPlayedAt = :timestamp WHERE id = :id")
+    suspend fun markPlayed(id: Long, timestamp: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(song: Song): Long
 

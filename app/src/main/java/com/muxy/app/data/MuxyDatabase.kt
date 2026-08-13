@@ -68,9 +68,23 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
+/**
+ * La 4 añade [Song.lastPlayedAt], para la sección de "recientes" del inicio.
+ *
+ * Igual que la 3: una columna sola con `ADD COLUMN`, sin reescribir nada. Es
+ * `NULL` por defecto porque no hay forma de saber cuándo sonó por última vez
+ * una canción que ya estaba en la librería antes de este cambio — no aparecer
+ * en "recientes" es lo correcto para esas.
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE songs ADD COLUMN lastPlayedAt INTEGER DEFAULT NULL")
+    }
+}
+
 @Database(
     entities = [Song::class, Playlist::class, PlaylistSong::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(SongSourceConverter::class)
@@ -91,7 +105,7 @@ abstract class MuxyDatabase : RoomDatabase() {
                     MuxyDatabase::class.java,
                     "muxy.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { instance = it }
             }

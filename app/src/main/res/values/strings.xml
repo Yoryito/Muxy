@@ -42,6 +42,7 @@
     <string name="library_empty_title">Tu estanque está tranquilo</string>
     <string name="library_empty_body">Busca una canción y Pochi te la traerá aquí.</string>
 
+    <string name="library_recently_played_title">Escuchado hace poco</string>
     <string name="library_filter_placeholder">Filtra tu librería</string>
     <string name="library_sort">Ordenar</string>
     <string name="library_sort_recent">Recientes</string>
