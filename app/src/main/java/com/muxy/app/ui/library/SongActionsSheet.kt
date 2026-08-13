@@ -122,6 +122,63 @@ fun SongActionsSheet(
     }
 }
 
+/**
+ * La misma lista de playlists que [SongActionsSheet], pero para añadir de golpe
+ * la selección múltiple de la librería: no hay una sola canción de la que
+ * marcar en qué listas ya está, así que aquí toda fila añade sin más.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddToPlaylistSheet(
+    count: Int,
+    playlists: List<PlaylistSummary>,
+    onSelect: (Long) -> Unit,
+    onNewPlaylist: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 12.dp),
+        ) {
+            Text(
+                text = pluralStringResource(R.plurals.library_selection_add_to_playlist, count, count),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+            )
+
+            playlists.forEach { playlist ->
+                SheetRow(
+                    icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                    iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    title = playlist.name,
+                    subtitle = pluralStringResource(
+                        R.plurals.playlist_song_count,
+                        playlist.songCount,
+                        playlist.songCount,
+                    ),
+                    onClick = { onSelect(playlist.id) },
+                )
+            }
+
+            SheetRow(
+                icon = Icons.Rounded.Add,
+                iconTint = MaterialTheme.colorScheme.primary,
+                title = stringResource(R.string.playlist_new),
+                titleColor = MaterialTheme.colorScheme.primary,
+                onClick = onNewPlaylist,
+            )
+        }
+    }
+}
+
 @Composable
 private fun SheetHeader(song: Song) {
     Row(

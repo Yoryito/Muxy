@@ -20,6 +20,9 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "Muxy"
 
+/** Cualquier URL de YouTube con `list=` — de playlist o de un vídeo dentro de una. */
+private val PLAYLIST_LIST_ID = Regex("[?&]list=([a-zA-Z0-9_-]+)")
+
 enum class SearchFailure {
     /** YouTube pide captcha. Esperar es lo único que ayuda. */
     RateLimited,
@@ -42,6 +45,8 @@ data class SearchUiState(
     val downloads: Map<String, DownloadStatus> = emptyMap(),
     /** Vídeos que ya están guardados: no tiene sentido volver a bajarlos. */
     val inLibrary: Set<String> = emptySet(),
+    /** Si no es nulo, [results] es una playlist resuelta y no una búsqueda. */
+    val playlistName: String? = null,
 )
 
 class SearchViewModel(
@@ -75,18 +80,37 @@ class SearchViewModel(
         // justo lo que dispara el captcha.
         searchJob?.cancel()
         if (query.isBlank()) {
-            _state.update { it.copy(results = emptyList(), emptyResult = false, failure = null) }
+            _state.update {
+                it.copy(results = emptyList(), emptyResult = false, failure = null, playlistName = null)
+            }
             return
         }
+
+        // Pegar una URL de playlist es un gesto deliberado, no una tecla más:
+        // no hace falta esperar el debounce como con una búsqueda de texto.
+        val listId = PLAYLIST_LIST_ID.find(query)?.groupValues?.get(1)
         searchJob = viewModelScope.launch {
-            delay(450)
-            runSearch(query)
+            if (listId != null) {
+                runPlaylistResolve(query, listId)
+            } else {
+                delay(450)
+                runSearch(query)
+            }
         }
     }
 
     fun retry() {
         searchJob?.cancel()
-        searchJob = viewModelScope.launch { runSearch(_state.value.query) }
+        val query = _state.value.query
+        val listId = PLAYLIST_LIST_ID.find(query)?.groupValues?.get(1)
+        searchJob = viewModelScope.launch {
+            if (listId != null) runPlaylistResolve(query, listId) else runSearch(query)
+        }
+    }
+
+    /** El botón "Descargar todas" de una playlist resuelta. */
+    fun onDownloadAllRequested() {
+        _state.value.results.forEach(::onDownloadRequested)
     }
 
     /**
@@ -109,7 +133,7 @@ class SearchViewModel(
 
     private suspend fun runSearch(query: String) {
         if (query.isBlank()) return
-        _state.update { it.copy(isSearching = true, failure = null, emptyResult = false) }
+        _state.update { it.copy(isSearching = true, failure = null, emptyResult = false, playlistName = null) }
 
         val outcome = runCatching { resolver.search(query) }
 
@@ -133,6 +157,39 @@ class SearchViewModel(
                         isSearching = false,
                         results = emptyList(),
                         failure = error.toFailure(),
+                    )
+                }
+            }
+    }
+
+    private suspend fun runPlaylistResolve(query: String, listId: String) {
+        _state.update { it.copy(isSearching = true, failure = null, emptyResult = false, playlistName = null) }
+
+        val outcome = runCatching {
+            resolver.resolvePlaylist("https://www.youtube.com/playlist?list=$listId")
+        }
+
+        if (_state.value.query != query) return
+
+        outcome
+            .onSuccess { playlist ->
+                _state.update {
+                    it.copy(
+                        isSearching = false,
+                        results = playlist.items,
+                        emptyResult = playlist.items.isEmpty(),
+                        playlistName = playlist.title,
+                    )
+                }
+            }
+            .onFailure { error ->
+                Log.w(TAG, "No se pudo resolver la playlist: $query", error)
+                _state.update {
+                    it.copy(
+                        isSearching = false,
+                        results = emptyList(),
+                        failure = error.toFailure(),
+                        playlistName = null,
                     )
                 }
             }

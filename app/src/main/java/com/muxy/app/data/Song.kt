@@ -1,5 +1,6 @@
 package com.muxy.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -23,6 +24,15 @@ data class Song(
     /** Identificador en el origen (por ahora, el id del vídeo de YouTube). */
     val sourceId: String? = null,
     val source: SongSource = SongSource.Imported,
+    /**
+     * Cuánto atenuar al reproducir para que no suene más alto que las demás.
+     * Siempre `<= 0`: solo baja el volumen de lo que suena fuerte, nunca sube
+     * lo flojo — [Player.volume][androidx.media3.common.Player] no amplifica
+     * más allá de 1.0. `0` es "sin medir o sin ajuste", que es también lo que
+     * traen las canciones de antes de que existiera este campo.
+     */
+    @ColumnInfo(defaultValue = "0.0")
+    val gainDb: Float = 0f,
 )
 
 enum class SongSource {

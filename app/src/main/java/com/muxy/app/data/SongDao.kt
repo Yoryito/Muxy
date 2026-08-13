@@ -13,6 +13,10 @@ interface SongDao {
     @Query("SELECT * FROM songs ORDER BY addedAt DESC")
     fun observeAll(): Flow<List<Song>>
 
+    /** Instantánea sin observar, para comprobaciones puntuales como [MusicLibrary.sync]. */
+    @Query("SELECT * FROM songs")
+    suspend fun all(): List<Song>
+
     @Query("SELECT * FROM songs WHERE id = :id")
     suspend fun byId(id: Long): Song?
 

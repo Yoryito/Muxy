@@ -57,13 +57,14 @@ class PlaylistsViewModel(
 
     /**
      * Crea una lista y, si viene de "añadir a una playlist", mete dentro la
-     * canción de la que se partió: crear la lista y luego tener que buscarla
-     * para añadir la canción sería dar un rodeo por nada.
+     * canción (o canciones, desde la selección múltiple) de la que se partió:
+     * crear la lista y luego tener que buscarla para añadirlas sería dar un
+     * rodeo por nada.
      */
-    fun create(name: String, fallbackName: String, songId: Long? = null) {
+    fun create(name: String, fallbackName: String, songIds: Set<Long> = emptySet()) {
         viewModelScope.launch {
             val id = playlists.create(name, fallbackName)
-            if (songId != null) playlists.addSong(id, songId)
+            if (songIds.isNotEmpty()) playlists.addSongs(id, songIds)
         }
     }
 
@@ -95,6 +96,11 @@ class PlaylistsViewModel(
 
     fun reorder(playlistId: Long, orderedSongIds: List<Long>) {
         viewModelScope.launch { playlists.reorder(playlistId, orderedSongIds) }
+    }
+
+    /** El "añadir a una playlist" en bloque de la selección múltiple de la librería. */
+    fun addSongs(playlistId: Long, songIds: Set<Long>) {
+        viewModelScope.launch { playlists.addSongs(playlistId, songIds) }
     }
 
     /** Reproduce la lista abierta empezando por [song]. */

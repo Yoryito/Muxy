@@ -17,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.pow
 
 /**
  * Mantiene la reproducción viva cuando la app pasa a segundo plano y publica
@@ -31,7 +32,10 @@ class PlaybackService : MediaSessionService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val artworkListener = object : Player.Listener {
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = attachArtwork()
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            attachArtwork()
+            applyGain(mediaItem)
+        }
     }
 
     override fun onCreate() {
@@ -107,6 +111,17 @@ class PlaybackService : MediaSessionService() {
                     .build(),
             )
         }
+    }
+
+    /**
+     * Aplica la atenuación de [EXTRA_GAIN_DB], que solo puede bajar el volumen:
+     * el campo se calcula al descargar para que ninguna canción destaque sobre
+     * las demás, y [Player.volume] no deja subir por encima de 1.0 lo que suena
+     * flojo — solo hay margen para bajar lo que suena fuerte.
+     */
+    private fun applyGain(mediaItem: MediaItem?) {
+        val gainDb = mediaItem?.mediaMetadata?.extras?.getFloat(EXTRA_GAIN_DB) ?: 0f
+        mediaSession?.player?.volume = 10f.pow(gainDb / 20f)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession

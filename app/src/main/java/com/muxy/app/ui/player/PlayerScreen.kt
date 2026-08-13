@@ -86,6 +86,7 @@ fun PlayerScreen(
     onSeek: (Long) -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
+    onCyclePlaybackSpeed: () -> Unit,
     onSetSleepTimer: (Long) -> Unit,
     onSetSleepTimerEndOfSong: () -> Unit,
     onCancelSleepTimer: () -> Unit,
@@ -151,6 +152,10 @@ fun PlayerScreen(
             )
 
             Spacer(Modifier.weight(0.5f))
+
+            SpeedButton(speed = state.speed, onClick = onCyclePlaybackSpeed)
+
+            Spacer(Modifier.height(8.dp))
 
             Controls(
                 state = state,
@@ -477,6 +482,28 @@ private fun PlayButton(isPlaying: Boolean, onClick: () -> Unit) {
         )
     }
 }
+
+/** Un toque recorre [com.muxy.app.playback.PLAYBACK_SPEEDS]; teñida cuando no es la normal. */
+@Composable
+private fun SpeedButton(speed: Float, onClick: () -> Unit) {
+    Text(
+        text = stringResource(R.string.player_speed, formatSpeed(speed)),
+        style = MaterialTheme.typography.labelLarge,
+        color = if (speed == 1f) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            MaterialTheme.colorScheme.tertiary
+        },
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    )
+}
+
+/** "1", "1.5"… nunca "1.0": para el único paso entero de la lista sobra el decimal. */
+private fun formatSpeed(speed: Float): String =
+    if (speed % 1f == 0f) speed.toInt().toString() else speed.toString()
 
 /** Aleatorio y repetición: encendidos se tiñen del acento, apagados se apagan. */
 @Composable

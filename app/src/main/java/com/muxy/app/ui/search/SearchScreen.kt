@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,6 +57,7 @@ fun SearchScreen(
     onRetry: () -> Unit,
     onDownload: (YoutubeResult) -> Unit,
     onCancelDownload: (YoutubeResult) -> Unit,
+    onDownloadAll: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -75,6 +77,16 @@ fun SearchScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 10.dp),
         )
+
+        // Pegar la URL de una playlist cambia lo que hay debajo: en vez de
+        // resultados sueltos, una lista entera con un botón para bajarla toda.
+        if (state.playlistName != null && state.results.isNotEmpty()) {
+            PlaylistHeader(
+                name = state.playlistName,
+                count = state.results.size,
+                onDownloadAll = onDownloadAll,
+            )
+        }
 
         Box(Modifier.fillMaxSize()) {
             when {
@@ -121,6 +133,24 @@ fun SearchScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PlaylistHeader(name: String, count: Int, onDownloadAll: () -> Unit) {
+    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+        Text(
+            text = name,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        PondButton(
+            text = pluralStringResource(R.plurals.search_playlist_download_all, count, count),
+            onClick = onDownloadAll,
+            modifier = Modifier.padding(top = 6.dp),
+        )
     }
 }
 

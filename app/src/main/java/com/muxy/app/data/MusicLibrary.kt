@@ -74,6 +74,8 @@ class MusicLibrary(
      * a mano con `adb push`, antes de que exista la descarga.
      */
     suspend fun sync() = withContext(Dispatchers.IO) {
+        pruneMissing(dao.all())
+
         val onDisk = musicDir.listFiles { f -> f.isFile && f.extension.lowercase() in AUDIO_EXTENSIONS }
             ?.toList()
             .orEmpty()

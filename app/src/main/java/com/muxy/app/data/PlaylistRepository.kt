@@ -52,6 +52,19 @@ class PlaylistRepository(private val dao: PlaylistDao) {
         )
     }
 
+    /** Igual que [addSong] pero para varias de golpe, para la selección múltiple de la librería. */
+    suspend fun addSongs(playlistId: Long, songIds: Collection<Long>) = withContext(Dispatchers.IO) {
+        songIds.forEach { songId ->
+            dao.insertSong(
+                PlaylistSong(
+                    playlistId = playlistId,
+                    songId = songId,
+                    position = dao.nextPosition(playlistId),
+                ),
+            )
+        }
+    }
+
     suspend fun removeSong(playlistId: Long, songId: Long) = withContext(Dispatchers.IO) {
         dao.removeSong(playlistId, songId)
     }

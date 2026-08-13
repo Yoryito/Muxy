@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -55,7 +56,11 @@ data class PlaybackState(
     val shuffleEnabled: Boolean = false,
     val repeatMode: RepeatMode = RepeatMode.Off,
     val hasNext: Boolean = false,
+    val speed: Float = 1f,
 )
+
+/** Los pasos entre los que se mueve [PlayerConnection.cyclePlaybackSpeed]. */
+val PLAYBACK_SPEEDS = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
 
 /**
  * Puente entre la interfaz y [PlaybackService].
@@ -155,6 +160,12 @@ class PlayerConnection(private val context: Context) {
         }
     }
 
+    /** Recorre [PLAYBACK_SPEEDS] en orden, volviendo al principio tras la última. */
+    fun cyclePlaybackSpeed() = withController {
+        val current = PLAYBACK_SPEEDS.indexOf(playbackParameters.speed).coerceAtLeast(0)
+        setPlaybackParameters(PlaybackParameters(PLAYBACK_SPEEDS[(current + 1) % PLAYBACK_SPEEDS.size]))
+    }
+
     /** Pausa dentro de [durationMs]. Sustituye cualquier temporizador que hubiera puesto antes. */
     fun setSleepTimer(durationMs: Long) {
         clearTimer()
@@ -227,6 +238,7 @@ class PlayerConnection(private val context: Context) {
                 else -> RepeatMode.Off
             },
             hasNext = c.hasNextMediaItem(),
+            speed = c.playbackParameters.speed,
         )
     }
 
@@ -252,6 +264,9 @@ class PlayerConnection(private val context: Context) {
  */
 const val EXTRA_COVER_PATH = "com.muxy.app.COVER_PATH"
 
+/** Cuánto atenuar esta pista al reproducirla, para que suenen todas a un volumen parecido. */
+const val EXTRA_GAIN_DB = "com.muxy.app.GAIN_DB"
+
 fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
     .setMediaId(id.toString())
     .setUri(File(filePath).toUri())
@@ -263,6 +278,7 @@ fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
             .setExtras(
                 Bundle().apply {
                     if (coverArtPath != null) putString(EXTRA_COVER_PATH, coverArtPath)
+                    putFloat(EXTRA_GAIN_DB, gainDb)
                 },
             )
             .build(),

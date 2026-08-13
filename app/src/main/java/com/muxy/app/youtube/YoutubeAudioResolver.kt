@@ -18,6 +18,9 @@ data class AudioStream(
     val mimeType: String?,
 )
 
+/** Una lista de reproducción de YouTube, ya resuelta a vídeos descargables. */
+data class YoutubePlaylist(val title: String, val items: List<YoutubeResult>)
+
 /** Metadatos del vídeo, para etiquetar el archivo resultante. */
 data class YoutubeTrack(
     val videoId: String,
@@ -61,4 +64,7 @@ interface YoutubeAudioResolver {
 
     /** Resuelve la mejor pista de audio del vídeo. */
     suspend fun resolve(videoId: String): YoutubeTrack
+
+    /** Resuelve los vídeos de una lista de reproducción, para descargarla entera de golpe. */
+    suspend fun resolvePlaylist(url: String): YoutubePlaylist
 }

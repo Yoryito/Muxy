@@ -54,9 +54,23 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+/**
+ * La 3 añade [Song.gainDb], para la normalización de volumen entre canciones.
+ *
+ * Una columna sola con `ADD COLUMN` es mucho menos arriesgada que la migración
+ * de tablas de la 2: no reescribe nada, solo añade un campo con un valor por
+ * defecto que las filas ya existentes heredan tal cual (0 = sin ajuste, que es
+ * exactamente el volumen que tenían hasta ahora).
+ */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE songs ADD COLUMN gainDb REAL NOT NULL DEFAULT 0.0")
+    }
+}
+
 @Database(
     entities = [Song::class, Playlist::class, PlaylistSong::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(SongSourceConverter::class)
@@ -77,7 +91,7 @@ abstract class MuxyDatabase : RoomDatabase() {
                     MuxyDatabase::class.java,
                     "muxy.db",
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { instance = it }
             }

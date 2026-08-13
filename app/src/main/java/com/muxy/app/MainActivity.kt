@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -92,6 +93,7 @@ class MainActivity : ComponentActivity() {
                             container.updateChecker,
                             container.updateInstaller,
                             container.updatePreferences,
+                            container.playlistBackup,
                         ),
                     ),
                 )
@@ -134,6 +136,59 @@ private fun UpdatePermissionBridge(settingsViewModel: SettingsViewModel) {
     }
 }
 
+/**
+ * Los selectores de "guardar en" y "abrir archivo" del backup de playlists.
+ *
+ * Van en la Activity y no en el ViewModel porque escribir o leer en la ruta
+ * que elige el usuario necesita un `ContentResolver`, y solo la Activity lo
+ * tiene. El JSON a exportar se guarda aparte porque `exportReady` avisa de que
+ * ya está listo, pero el selector solo devuelve la ruta más tarde, cuando el
+ * usuario termina de elegirla.
+ */
+@Composable
+private fun BackupBridge(settingsViewModel: SettingsViewModel) {
+    val context = LocalContext.current
+    var pendingExport by remember { mutableStateOf<String?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        val content = pendingExport
+        pendingExport = null
+        if (uri == null || content == null) return@rememberLauncherForActivityResult
+        val success = runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { it.write(content.toByteArray()) }
+                ?: error("Sin flujo de escritura")
+        }.isSuccess
+        settingsViewModel.onExportWritten(success)
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val content = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+        }.getOrNull()
+        settingsViewModel.importPlaylists(content)
+    }
+
+    LaunchedEffect(Unit) {
+        settingsViewModel.exportReady.collect { content ->
+            pendingExport = content
+            exportLauncher.launch("muxy-playlists.json")
+        }
+    }
+
+    // El botón "Importar" de ajustes llama a esto directamente; se expone como
+    // efecto para no tener que colar el launcher fuera de esta función.
+    LaunchedEffect(Unit) {
+        settingsViewModel.importRequests.collect {
+            importLauncher.launch(arrayOf("application/json"))
+        }
+    }
+}
+
 private enum class Destination(val labelRes: Int) {
     Library(R.string.nav_library),
     Playlists(R.string.nav_playlists),
@@ -155,6 +210,8 @@ private fun MuxyApp(
     val libraryIsEmpty by libraryViewModel.libraryIsEmpty.collectAsStateWithLifecycle()
     val libraryQuery by libraryViewModel.query.collectAsStateWithLifecycle()
     val librarySort by libraryViewModel.sort.collectAsStateWithLifecycle()
+    val librarySelectionMode by libraryViewModel.selectionMode.collectAsStateWithLifecycle()
+    val librarySelectedIds by libraryViewModel.selectedIds.collectAsStateWithLifecycle()
     val playback by libraryViewModel.playback.collectAsStateWithLifecycle()
     val sleepTimer by libraryViewModel.sleepTimer.collectAsStateWithLifecycle()
     val search by searchViewModel.state.collectAsStateWithLifecycle()
@@ -172,6 +229,7 @@ private fun MuxyApp(
     LaunchedEffect(Unit) { settingsViewModel.checkOnStart() }
 
     UpdatePermissionBridge(settingsViewModel)
+    BackupBridge(settingsViewModel)
 
     // Si la cola se vacía, el reproductor se queda sin nada que enseñar.
     LaunchedEffect(playback.songId) {
@@ -243,13 +301,26 @@ private fun MuxyApp(
                     playingSongId = playback.songId,
                     playlists = playlists,
                     playlistsContaining = playlistsViewModel::playlistsContaining,
+                    selectionMode = librarySelectionMode,
+                    selectedIds = librarySelectedIds,
                     onQueryChange = libraryViewModel::onQueryChange,
                     onSortChange = libraryViewModel::onSortChange,
                     onPlay = libraryViewModel::play,
                     onDelete = libraryViewModel::delete,
                     onTogglePlaylist = playlistsViewModel::toggleSong,
                     onCreatePlaylistWith = { name, songId ->
-                        playlistsViewModel.create(name, defaultPlaylistName, songId)
+                        playlistsViewModel.create(name, defaultPlaylistName, setOf(songId))
+                    },
+                    onToggleSelectionMode = libraryViewModel::toggleSelectionMode,
+                    onToggleSelected = libraryViewModel::toggleSelected,
+                    onDeleteSelected = libraryViewModel::deleteSelected,
+                    onAddSelectedToPlaylist = { playlistId ->
+                        playlistsViewModel.addSongs(playlistId, librarySelectedIds)
+                        libraryViewModel.exitSelectionMode()
+                    },
+                    onCreatePlaylistWithSelected = { name ->
+                        playlistsViewModel.create(name, defaultPlaylistName, librarySelectedIds)
+                        libraryViewModel.exitSelectionMode()
                     },
                     contentPadding = innerPadding,
                 )
@@ -287,6 +358,7 @@ private fun MuxyApp(
                     onRetry = searchViewModel::retry,
                     onDownload = searchViewModel::onDownloadRequested,
                     onCancelDownload = searchViewModel::onCancelRequested,
+                    onDownloadAll = searchViewModel::onDownloadAllRequested,
                     contentPadding = innerPadding,
                 )
 
@@ -295,6 +367,9 @@ private fun MuxyApp(
                     onToggleAutoCheck = settingsViewModel::setAutoCheck,
                     onCheckNow = settingsViewModel::checkNow,
                     onUpdate = settingsViewModel::startUpdate,
+                    onExportPlaylists = settingsViewModel::exportPlaylists,
+                    onImportPlaylists = settingsViewModel::requestImport,
+                    onDismissBackupNotice = settingsViewModel::dismissBackupNotice,
                     contentPadding = innerPadding,
                 )
             }
@@ -330,6 +405,7 @@ private fun MuxyApp(
                 onSeek = libraryViewModel::seekTo,
                 onToggleShuffle = libraryViewModel::toggleShuffle,
                 onCycleRepeat = libraryViewModel::cycleRepeat,
+                onCyclePlaybackSpeed = libraryViewModel::cyclePlaybackSpeed,
                 onSetSleepTimer = libraryViewModel::setSleepTimer,
                 onSetSleepTimerEndOfSong = libraryViewModel::setSleepTimerEndOfSong,
                 onCancelSleepTimer = libraryViewModel::cancelSleepTimer,

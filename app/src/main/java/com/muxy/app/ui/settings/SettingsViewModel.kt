@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.muxy.app.BuildConfig
+import com.muxy.app.data.PlaylistBackup
 import com.muxy.app.update.AvailableUpdate
 import com.muxy.app.update.UpdateCheck
 import com.muxy.app.update.UpdateChecker
@@ -51,18 +52,28 @@ fun UpdateState.updateOrNull(): AvailableUpdate? = when (this) {
     else -> null
 }
 
+/** Cómo fue la última exportación o importación de playlists. */
+sealed interface BackupNotice {
+    data object Exported : BackupNotice
+    data class Imported(val playlistsCreated: Int, val songsAdded: Int, val songsSkipped: Int) : BackupNotice
+    data object ExportFailed : BackupNotice
+    data object ImportFailed : BackupNotice
+}
+
 data class SettingsUiState(
     val currentVersion: String = BuildConfig.VERSION_NAME,
     val autoCheck: Boolean = true,
     val update: UpdateState = UpdateState.Idle,
     /** El aviso emergente, que sale solo cuando la comprobación fue automática. */
     val promptVisible: Boolean = false,
+    val backupNotice: BackupNotice? = null,
 )
 
 class SettingsViewModel(
     private val checker: UpdateChecker,
     private val installer: UpdateInstaller,
     private val preferences: UpdatePreferences,
+    private val playlistBackup: PlaylistBackup,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState(autoCheck = preferences.autoCheck.value))
@@ -75,6 +86,18 @@ class SettingsViewModel(
      */
     private val _installPermissionRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val installPermissionRequests: SharedFlow<Unit> = _installPermissionRequests.asSharedFlow()
+
+    /**
+     * El JSON ya generado, listo para que la Activity abra el selector de
+     * dónde guardarlo — escribir en la ruta que elija el usuario necesita un
+     * `ContentResolver`, que el ViewModel no tiene.
+     */
+    private val _exportReady = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val exportReady: SharedFlow<String> = _exportReady.asSharedFlow()
+
+    /** El botón "Importar": solo pide a la Activity que abra el selector de archivo. */
+    private val _importRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val importRequests: SharedFlow<Unit> = _importRequests.asSharedFlow()
 
     private var checkJob: Job? = null
     private var downloadJob: Job? = null
@@ -158,6 +181,58 @@ class SettingsViewModel(
         }
     }
 
+    fun exportPlaylists() {
+        viewModelScope.launch {
+            runCatching { playlistBackup.export() }
+                .onSuccess { _exportReady.tryEmit(it) }
+                .onFailure {
+                    Log.w(TAG, "No se pudo preparar la copia de seguridad", it)
+                    _state.update { s -> s.copy(backupNotice = BackupNotice.ExportFailed) }
+                }
+        }
+    }
+
+    /** La Activity llama aquí tras escribir (o intentar escribir) en la ruta elegida. */
+    fun onExportWritten(success: Boolean) {
+        _state.update {
+            it.copy(backupNotice = if (success) BackupNotice.Exported else BackupNotice.ExportFailed)
+        }
+    }
+
+    fun requestImport() {
+        _importRequests.tryEmit(Unit)
+    }
+
+    /** [content] llega nulo cuando la Activity no pudo ni leer el archivo elegido. */
+    fun importPlaylists(content: String?) {
+        viewModelScope.launch {
+            if (content == null) {
+                _state.update { it.copy(backupNotice = BackupNotice.ImportFailed) }
+                return@launch
+            }
+            runCatching { playlistBackup.import(content) }
+                .onSuccess { result ->
+                    _state.update {
+                        it.copy(
+                            backupNotice = BackupNotice.Imported(
+                                playlistsCreated = result.playlistsCreated,
+                                songsAdded = result.songsAdded,
+                                songsSkipped = result.songsSkipped,
+                            ),
+                        )
+                    }
+                }
+                .onFailure {
+                    Log.w(TAG, "No se pudo importar la copia de seguridad", it)
+                    _state.update { s -> s.copy(backupNotice = BackupNotice.ImportFailed) }
+                }
+        }
+    }
+
+    fun dismissBackupNotice() {
+        _state.update { it.copy(backupNotice = null) }
+    }
+
     private fun runCheck(announce: Boolean) {
         if (checkJob?.isActive == true) return
         checkJob = viewModelScope.launch {
@@ -180,9 +255,10 @@ class SettingsViewModel(
         private val checker: UpdateChecker,
         private val installer: UpdateInstaller,
         private val preferences: UpdatePreferences,
+        private val playlistBackup: PlaylistBackup,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            SettingsViewModel(checker, installer, preferences) as T
+            SettingsViewModel(checker, installer, preferences, playlistBackup) as T
     }
 }

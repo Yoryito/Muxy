@@ -8,6 +8,7 @@ import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException
 import org.schabi.newpipe.extractor.exceptions.ExtractionException
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
+import org.schabi.newpipe.extractor.playlist.PlaylistInfo
 import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
@@ -74,6 +75,37 @@ class NewPipeAudioResolver : YoutubeAudioResolver {
         )
     }
 
+    /**
+     * Va por páginas hasta [MAX_PLAYLIST_ITEMS] o [MAX_PLAYLIST_PAGES], lo que
+     * llegue antes: para uso personal es de sobra, y sin un tope una lista
+     * gigante se pondría a paginar sin parar.
+     */
+    override suspend fun resolvePlaylist(url: String): YoutubePlaylist = withContext(Dispatchers.IO) {
+        ensureInitialised()
+        runCatching {
+            val info = PlaylistInfo.getInfo(youtube, url)
+            val items = mutableListOf<StreamInfoItem>()
+            items += info.relatedItems.filterIsInstance<StreamInfoItem>()
+
+            var page = info.nextPage
+            var pagesFetched = 0
+            while (page != null && items.size < MAX_PLAYLIST_ITEMS && pagesFetched < MAX_PLAYLIST_PAGES) {
+                val more = PlaylistInfo.getMoreItems(youtube, url, page)
+                items += more.items.filterIsInstance<StreamInfoItem>()
+                page = more.nextPage
+                pagesFetched++
+            }
+
+            YoutubePlaylist(
+                title = info.name.orEmpty(),
+                items = items
+                    .filterNot { it.streamType?.name?.contains("LIVE") == true }
+                    .mapNotNull { it.toResult() }
+                    .take(MAX_PLAYLIST_ITEMS),
+            )
+        }.getOrElse { throw it.asResolveError() }
+    }
+
     private fun StreamInfoItem.toResult(): YoutubeResult? {
         val id = url?.substringAfter("v=", "")?.substringBefore("&")?.takeIf { it.isNotBlank() }
             ?: return null
@@ -88,6 +120,9 @@ class NewPipeAudioResolver : YoutubeAudioResolver {
     }
 
     private companion object {
+        const val MAX_PLAYLIST_ITEMS = 300
+        const val MAX_PLAYLIST_PAGES = 5
+
         private val initialised = AtomicBoolean(false)
 
         fun ensureInitialised() {

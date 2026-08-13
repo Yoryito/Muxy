@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.Collator
 import java.text.Normalizer
@@ -46,6 +47,12 @@ class LibraryViewModel(
 
     private val _sort = MutableStateFlow(LibrarySort.Recent)
     val sort: StateFlow<LibrarySort> = _sort.asStateFlow()
+
+    private val _selectionMode = MutableStateFlow(false)
+    val selectionMode: StateFlow<Boolean> = _selectionMode.asStateFlow()
+
+    private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedIds: StateFlow<Set<Long>> = _selectedIds.asStateFlow()
 
     /** Todo lo que hay en la librería, sin filtrar. */
     private val allSongs: StateFlow<List<Song>> = library.observeSongs()
@@ -107,6 +114,8 @@ class LibraryViewModel(
 
     fun cycleRepeat() = player.cycleRepeat()
 
+    fun cyclePlaybackSpeed() = player.cyclePlaybackSpeed()
+
     fun setSleepTimer(durationMs: Long) = player.setSleepTimer(durationMs)
 
     fun setSleepTimerEndOfSong() = player.setSleepTimerEndOfSong()
@@ -123,6 +132,28 @@ class LibraryViewModel(
             player.removeSong(song.id)
             library.remove(song)
         }
+    }
+
+    /** Entra o sale del modo selección. Salir vacía lo marcado. */
+    fun toggleSelectionMode() {
+        _selectionMode.update { !it }
+        _selectedIds.value = emptySet()
+    }
+
+    fun exitSelectionMode() {
+        _selectionMode.value = false
+        _selectedIds.value = emptySet()
+    }
+
+    fun toggleSelected(id: Long) {
+        _selectedIds.update { if (id in it) it - id else it + id }
+    }
+
+    /** Borra todo lo marcado y sale del modo selección. */
+    fun deleteSelected() {
+        val ids = _selectedIds.value
+        songs.value.filter { it.id in ids }.forEach(::delete)
+        exitSelectionMode()
     }
 
     class Factory(

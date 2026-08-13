@@ -84,6 +84,10 @@ class DownloadWorker(
                 report(displayTitle, DownloadStage.Converting, fraction)
             }
 
+            // Nunca crítico: si falla o tarda raro, la canción se queda sin
+            // normalizar en vez de perder la descarga entera por esto.
+            val gainDb = LoudnessAnalyzer.measureRmsDb(staging)?.let(TrackGain::dbFor) ?: 0f
+
             report(displayTitle, DownloadStage.Tagging, null)
             val cover = saveCover(track, videoId)
             TrackTagger.write(
@@ -109,6 +113,7 @@ class DownloadWorker(
                     addedAt = System.currentTimeMillis(),
                     sourceId = videoId,
                     source = SongSource.YouTube,
+                    gainDb = gainDb,
                 ),
             )
 

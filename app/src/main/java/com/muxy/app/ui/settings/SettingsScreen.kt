@@ -1,5 +1,6 @@
 package com.muxy.app.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -32,6 +33,9 @@ fun SettingsScreen(
     onToggleAutoCheck: (Boolean) -> Unit,
     onCheckNow: () -> Unit,
     onUpdate: () -> Unit,
+    onExportPlaylists: () -> Unit,
+    onImportPlaylists: () -> Unit,
+    onDismissBackupNotice: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -54,6 +58,13 @@ fun SettingsScreen(
         )
 
         AboutCard(version = state.currentVersion)
+
+        BackupCard(
+            notice = state.backupNotice,
+            onExport = onExportPlaylists,
+            onImport = onImportPlaylists,
+            onDismissNotice = onDismissBackupNotice,
+        )
 
         // Las actualizaciones van al final: es lo que menos se toca y lo que más
         // ocupa cuando hay algo que contar.
@@ -90,6 +101,71 @@ private fun AboutCard(version: String) {
             )
         }
     }
+}
+
+/**
+ * Exportar e importar playlists en JSON, porque todo lo demás vive solo en
+ * Room: si se pierde el móvil o hay que reinstalar, las playlists se van con
+ * él aunque los archivos de música sigan a salvo.
+ */
+@Composable
+private fun BackupCard(
+    notice: BackupNotice?,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+    onDismissNotice: () -> Unit,
+) {
+    LilyPadCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = stringResource(R.string.settings_backup_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource(R.string.settings_backup_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            if (notice != null) {
+                val failed = notice is BackupNotice.ExportFailed || notice is BackupNotice.ImportFailed
+                Text(
+                    text = notice.text(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    // Se lee y se toca para quitarla; no hace falta un botón aparte.
+                    modifier = Modifier.clickable(onClick = onDismissNotice),
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PondButton(
+                    text = stringResource(R.string.settings_backup_export),
+                    onClick = onExport,
+                    modifier = Modifier.weight(1f),
+                )
+                PondButton(
+                    text = stringResource(R.string.settings_backup_import),
+                    onClick = onImport,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BackupNotice.text(): String = when (this) {
+    BackupNotice.Exported -> stringResource(R.string.settings_backup_export_done)
+    BackupNotice.ExportFailed -> stringResource(R.string.settings_backup_export_failed)
+    BackupNotice.ImportFailed -> stringResource(R.string.settings_backup_import_failed)
+    is BackupNotice.Imported -> stringResource(
+        R.string.settings_backup_import_done,
+        playlistsCreated,
+        songsAdded,
+        songsSkipped,
+    )
 }
 
 @Composable
