@@ -10,7 +10,7 @@ plugins {
 
 // La versión vive aquí y en ningún sitio más: `scripts/release.sh` la reescribe
 // y el `versionCode` sale de ella, para que no puedan discrepar.
-val muxyVersionName = "0.1.15"
+val muxyVersionName = "0.1.16"
 
 /**
  * 0.1.10 -> 110. Multiplicar por 100 cada tramo deja sitio para 99 versiones de
@@ -136,4 +136,10 @@ dependencies {
 
     implementation(libs.newpipe.extractor)
     implementation(libs.ealvatag)
+
+    // Solo tests de JVM: lo que tiene reglas de verdad (limpiar títulos de
+    // YouTube, decidir qué entra en cada sección del inicio) es Kotlin puro y no
+    // necesita dispositivo. Lo que sí lo necesitaría —Room, Media3, Compose— se
+    // prueba a mano en el móvil, como el resto del proyecto.
+    testImplementation(libs.junit)
 }

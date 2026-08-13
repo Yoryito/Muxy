@@ -82,9 +82,25 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+/**
+ * La 5 añade el contador de reproducciones de cada canción y la fecha de última
+ * escucha de cada lista, que es lo que permite el "Mi Top" y que los recientes
+ * del inicio mezclen canciones y playlists.
+ *
+ * Las dos son columnas sueltas otra vez. El contador arranca en 0 para todo lo
+ * que ya estaba: no hay historial anterior del que deducirlo, y estrenar la
+ * sección con el ranking vacío es más honesto que inventarse un orden.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE songs ADD COLUMN playCount INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE playlists ADD COLUMN lastPlayedAt INTEGER DEFAULT NULL")
+    }
+}
+
 @Database(
     entities = [Song::class, Playlist::class, PlaylistSong::class],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(SongSourceConverter::class)
@@ -105,7 +121,7 @@ abstract class MuxyDatabase : RoomDatabase() {
                     MuxyDatabase::class.java,
                     "muxy.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }

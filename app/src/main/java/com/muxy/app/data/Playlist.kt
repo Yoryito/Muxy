@@ -16,6 +16,11 @@ data class Playlist(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val createdAt: Long,
+    /**
+     * Cuándo se puso a sonar por última vez, para que aparezca en los recientes
+     * del inicio junto a las canciones. `null` si nunca se ha reproducido.
+     */
+    val lastPlayedAt: Long? = null,
 )
 
 /**
@@ -66,4 +71,5 @@ data class PlaylistSummary(
     val createdAt: Long,
     val songCount: Int,
     val coverArtPath: String?,
+    val lastPlayedAt: Long? = null,
 )

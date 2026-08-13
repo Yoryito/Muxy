@@ -20,6 +20,7 @@ serialization = "1.11.0"
 newpipeExtractor = "v0.26.4"
 ealvatag = "0.4.6"
 desugar = "2.1.5"
+junit = "4.13.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -57,6 +58,8 @@ newpipe-extractor = { group = "com.github.TeamNewPipe", name = "NewPipeExtractor
 ealvatag = { group = "com.ealva", name = "ealvatag", version.ref = "ealvatag" }
 
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
+
+junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

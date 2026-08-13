@@ -24,7 +24,8 @@ interface PlaylistDao {
                (SELECT s.coverArtPath FROM playlist_songs ps
                   JOIN songs s ON s.id = ps.songId
                  WHERE ps.playlistId = p.id AND s.coverArtPath IS NOT NULL
-                 ORDER BY ps.position LIMIT 1) AS coverArtPath
+                 ORDER BY ps.position LIMIT 1) AS coverArtPath,
+               p.lastPlayedAt AS lastPlayedAt
           FROM playlists p
          ORDER BY p.createdAt DESC
         """,
@@ -54,6 +55,10 @@ interface PlaylistDao {
 
     @Query("UPDATE playlists SET name = :name WHERE id = :id")
     suspend fun rename(id: Long, name: String)
+
+    /** Se llama al poner la lista a sonar, para que suba a los recientes del inicio. */
+    @Query("UPDATE playlists SET lastPlayedAt = :timestamp WHERE id = :id")
+    suspend fun markPlayed(id: Long, timestamp: Long)
 
     /** Borra la lista; sus filas de [PlaylistSong] se van en cascada. */
     @Query("DELETE FROM playlists WHERE id = :id")

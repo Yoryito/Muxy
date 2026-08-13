@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
@@ -43,7 +44,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.muxy.app.ui.home.HomeScreen
+import com.muxy.app.ui.home.HomeViewModel
+import com.muxy.app.ui.home.greetingFor
 import com.muxy.app.ui.library.LibraryScreen
+import com.muxy.app.ui.library.LibrarySort
 import com.muxy.app.ui.library.LibraryViewModel
 import com.muxy.app.ui.player.MiniPlayer
 import com.muxy.app.ui.player.PlayerScreen
@@ -57,6 +62,7 @@ import com.muxy.app.ui.settings.SettingsViewModel
 import com.muxy.app.ui.settings.UpdateDialog
 import com.muxy.app.ui.settings.updateOrNull
 import com.muxy.app.ui.theme.MuxyTheme
+import java.time.LocalTime
 
 class MainActivity : ComponentActivity() {
 
@@ -75,6 +81,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             MuxyTheme {
                 MuxyApp(
+                    homeViewModel = viewModel(
+                        factory = HomeViewModel.Factory(
+                            container.library,
+                            container.playlists,
+                            container.player,
+                        ),
+                    ),
                     libraryViewModel = viewModel(
                         factory = LibraryViewModel.Factory(container.library, container.player),
                     ),
@@ -190,6 +203,7 @@ private fun BackupBridge(settingsViewModel: SettingsViewModel) {
 }
 
 private enum class Destination(val labelRes: Int) {
+    Home(R.string.nav_home),
     Library(R.string.nav_library),
     Playlists(R.string.nav_playlists),
     Search(R.string.nav_search),
@@ -198,17 +212,18 @@ private enum class Destination(val labelRes: Int) {
 
 @Composable
 private fun MuxyApp(
+    homeViewModel: HomeViewModel,
     libraryViewModel: LibraryViewModel,
     playlistsViewModel: PlaylistsViewModel,
     searchViewModel: SearchViewModel,
     settingsViewModel: SettingsViewModel,
 ) {
-    var current by rememberSaveable { mutableStateOf(Destination.Library) }
+    var current by rememberSaveable { mutableStateOf(Destination.Home) }
     var playerOpen by rememberSaveable { mutableStateOf(false) }
 
     val songs by libraryViewModel.songs.collectAsStateWithLifecycle()
     val libraryIsEmpty by libraryViewModel.libraryIsEmpty.collectAsStateWithLifecycle()
-    val recentlyPlayed by libraryViewModel.recentlyPlayed.collectAsStateWithLifecycle()
+    val home by homeViewModel.state.collectAsStateWithLifecycle()
     val libraryQuery by libraryViewModel.query.collectAsStateWithLifecycle()
     val librarySort by libraryViewModel.sort.collectAsStateWithLifecycle()
     val librarySelectionMode by libraryViewModel.selectionMode.collectAsStateWithLifecycle()
@@ -224,6 +239,11 @@ private fun MuxyApp(
     val settings by settingsViewModel.state.collectAsStateWithLifecycle()
 
     val defaultPlaylistName = stringResource(R.string.playlist_default_name)
+
+    // La hora se lee una vez por composición y no con un reloj que refresque: el
+    // saludo no tiene por qué cambiar en vivo, y quien deja la app abierta desde
+    // las 20:59 no gana nada porque le cambie el texto por debajo.
+    val greeting = remember { greetingFor(LocalTime.now().hour) }
 
     // Comprobar si hay versión nueva es lo primero que hace la app al abrirse; el
     // ViewModel se encarga de que sea una sola vez por arranque.
@@ -266,6 +286,7 @@ private fun MuxyApp(
                                 icon = {
                                     Icon(
                                         imageVector = when (destination) {
+                                            Destination.Home -> Icons.Rounded.Home
                                             Destination.Library -> Icons.Rounded.LibraryMusic
                                             Destination.Playlists -> Icons.AutoMirrored.Rounded.QueueMusic
                                             Destination.Search -> Icons.Rounded.Search
@@ -294,10 +315,42 @@ private fun MuxyApp(
             },
         ) { innerPadding ->
             when (current) {
+                // Las tarjetas del inicio no abren pantallas propias: llevan a la
+                // pestaña que ya sabe enseñar eso, dejándola preparada. Así no hay
+                // dos sitios donde se pinte una playlist o una lista de canciones.
+                Destination.Home -> HomeScreen(
+                    state = home,
+                    greeting = greeting,
+                    playingSongId = playback.songId,
+                    onOpenAllDownloads = {
+                        libraryViewModel.onQueryChange("")
+                        libraryViewModel.onSortChange(LibrarySort.Recent)
+                        current = Destination.Library
+                    },
+                    onOpenMyTop = {
+                        libraryViewModel.onQueryChange("")
+                        libraryViewModel.onSortChange(LibrarySort.MostPlayed)
+                        current = Destination.Library
+                    },
+                    onOpenPlaylist = { id ->
+                        playlistsViewModel.open(id)
+                        current = Destination.Playlists
+                    },
+                    // Muxy no tiene pantalla de artista porque no tiene entidad de
+                    // artista: lo más parecido y honesto es la librería filtrada
+                    // por su nombre, que además se puede seguir afinando a mano.
+                    onOpenArtist = { artist ->
+                        libraryViewModel.onQueryChange(artist)
+                        libraryViewModel.onSortChange(LibrarySort.Title)
+                        current = Destination.Library
+                    },
+                    onPlaySong = homeViewModel::play,
+                    contentPadding = innerPadding,
+                )
+
                 Destination.Library -> LibraryScreen(
                     songs = songs,
                     libraryIsEmpty = libraryIsEmpty,
-                    recentlyPlayed = recentlyPlayed,
                     query = libraryQuery,
                     sort = librarySort,
                     playingSongId = playback.songId,
@@ -308,7 +361,6 @@ private fun MuxyApp(
                     onQueryChange = libraryViewModel::onQueryChange,
                     onSortChange = libraryViewModel::onSortChange,
                     onPlay = libraryViewModel::play,
-                    onPlayRecent = libraryViewModel::playRecent,
                     onDelete = libraryViewModel::delete,
                     onTogglePlaylist = playlistsViewModel::toggleSong,
                     onCreatePlaylistWith = { name, songId ->

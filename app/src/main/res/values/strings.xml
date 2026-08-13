@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Muxy</string>
 
+    <string name="nav_home">Inicio</string>
     <string name="nav_library">Librería</string>
     <string name="nav_playlists">Playlists</string>
     <string name="nav_search">Buscar</string>
@@ -42,7 +43,15 @@
     <string name="library_empty_title">Tu estanque está tranquilo</string>
     <string name="library_empty_body">Busca una canción y Pochi te la traerá aquí.</string>
 
-    <string name="library_recently_played_title">Escuchado hace poco</string>
+    <string name="home_greeting_morning">Buenos días</string>
+    <string name="home_greeting_afternoon">Buenas tardes</string>
+    <string name="home_greeting_evening">Buenas noches</string>
+    <string name="home_all_downloads">Todas mis descargas</string>
+    <string name="home_my_top">Mi Top</string>
+    <string name="home_recent_title">Escuchado hace poco</string>
+    <string name="home_most_played_title">Lo que más suenas</string>
+    <string name="home_artists_title">Tus artistas</string>
+    <string name="home_recently_added_title">Añadidas hace poco</string>
     <string name="library_filter_placeholder">Filtra tu librería</string>
     <string name="library_sort">Ordenar</string>
     <string name="library_sort_recent">Recientes</string>
@@ -50,6 +59,7 @@
     <string name="library_sort_title">Título</string>
     <string name="library_sort_artist">Artista</string>
     <string name="library_sort_duration">Duración</string>
+    <string name="library_sort_most_played">Más escuchadas</string>
     <string name="library_no_matches_title">Por aquí no hay nada</string>
     <string name="library_no_matches_body">Ninguna canción de tu librería coincide con eso.</string>
 

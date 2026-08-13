@@ -34,7 +34,12 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE lastPlayedAt IS NOT NULL ORDER BY lastPlayedAt DESC LIMIT :limit")
     fun observeRecentlyPlayed(limit: Int): Flow<List<Song>>
 
-    @Query("UPDATE songs SET lastPlayedAt = :timestamp WHERE id = :id")
+    /** El "Mi Top": lo que más ha sonado, con la última escucha para desempatar. */
+    @Query("SELECT * FROM songs WHERE playCount > 0 ORDER BY playCount DESC, lastPlayedAt DESC LIMIT :limit")
+    fun observeMostPlayed(limit: Int): Flow<List<Song>>
+
+    /** Una escucha: sube el contador y sella la fecha, siempre a la vez. */
+    @Query("UPDATE songs SET lastPlayedAt = :timestamp, playCount = playCount + 1 WHERE id = :id")
     suspend fun markPlayed(id: Long, timestamp: Long)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

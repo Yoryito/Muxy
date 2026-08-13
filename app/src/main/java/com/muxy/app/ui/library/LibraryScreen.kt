@@ -1,6 +1,5 @@
 package com.muxy.app.ui.library
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,9 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
@@ -36,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muxy.app.R
@@ -46,7 +42,6 @@ import com.muxy.app.ui.components.ConfirmDialog
 import com.muxy.app.ui.components.PochiEmptyState
 import com.muxy.app.ui.components.PochiPose
 import com.muxy.app.ui.components.PondSearchField
-import com.muxy.app.ui.components.SongCover
 import com.muxy.app.ui.components.SongRow
 import com.muxy.app.ui.components.TextPromptDialog
 import com.muxy.app.ui.components.formatDuration
@@ -56,7 +51,6 @@ import kotlinx.coroutines.flow.Flow
 fun LibraryScreen(
     songs: List<Song>,
     libraryIsEmpty: Boolean,
-    recentlyPlayed: List<Song>,
     query: String,
     sort: LibrarySort,
     playingSongId: Long?,
@@ -67,7 +61,6 @@ fun LibraryScreen(
     onQueryChange: (String) -> Unit,
     onSortChange: (LibrarySort) -> Unit,
     onPlay: (Song) -> Unit,
-    onPlayRecent: (Song) -> Unit,
     onDelete: (Song) -> Unit,
     onTogglePlaylist: (playlistId: Long, songId: Long, isMember: Boolean) -> Unit,
     onCreatePlaylistWith: (name: String, songId: Long) -> Unit,
@@ -114,16 +107,6 @@ fun LibraryScreen(
                 onDelete = { deletingSelected = true },
             )
         } else {
-            // Solo mientras no hay filtro puesto: con la librería filtrada, lo
-            // "reciente" no pinta nada encima de lo que se está buscando.
-            if (recentlyPlayed.isNotEmpty() && query.isBlank()) {
-                RecentlyPlayedSection(
-                    songs = recentlyPlayed,
-                    playingSongId = playingSongId,
-                    onPlay = onPlayRecent,
-                )
-            }
-
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PondSearchField(
                     value = query,
@@ -377,68 +360,11 @@ private fun SortRow(sort: LibrarySort, onSortChange: (LibrarySort) -> Unit) {
     }
 }
 
-/**
- * "Recientes" a modo de Spotify: una fila horizontal con lo último escuchado,
- * arriba del todo. Tocar una tarjeta reproduce esta lista desde ahí, no la
- * librería filtrada de abajo.
- */
-@Composable
-private fun RecentlyPlayedSection(songs: List<Song>, playingSongId: Long?, onPlay: (Song) -> Unit) {
-    Column(Modifier.padding(bottom = 4.dp)) {
-        Text(
-            text = stringResource(R.string.library_recently_played_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 10.dp),
-        )
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            items(songs, key = { it.id }) { song ->
-                RecentSongCard(
-                    song = song,
-                    isPlaying = song.id == playingSongId,
-                    onClick = { onPlay(song) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecentSongCard(song: Song, isPlaying: Boolean, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .width(84.dp)
-            .clickable(onClick = onClick),
-    ) {
-        // A este tamaño (bastante mayor que las filas de 52 dp) la muesca por
-        // defecto abriría un pedazo de tarta; se estrecha igual que en el
-        // reproductor a pantalla completa.
-        SongCover(song = song, isPlaying = isPlaying, size = 84.dp, notchWidth = 10f)
-        Text(
-            text = song.title,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-        Text(
-            text = song.artist ?: stringResource(R.string.unknown_artist),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
 private fun LibrarySort.labelRes(): Int = when (this) {
     LibrarySort.Recent -> R.string.library_sort_recent
     LibrarySort.Oldest -> R.string.library_sort_oldest
     LibrarySort.Title -> R.string.library_sort_title
     LibrarySort.Artist -> R.string.library_sort_artist
     LibrarySort.Duration -> R.string.library_sort_duration
+    LibrarySort.MostPlayed -> R.string.library_sort_most_played
 }

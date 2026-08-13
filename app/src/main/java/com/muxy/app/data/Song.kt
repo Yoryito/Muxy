@@ -33,8 +33,15 @@ data class Song(
      */
     @ColumnInfo(defaultValue = "0.0")
     val gainDb: Float = 0f,
-    /** Cuándo empezó a sonar por última vez. `null` si nunca se ha reproducido. */
+    /** Cuándo se escuchó por última vez. `null` si nunca se ha reproducido. */
     val lastPlayedAt: Long? = null,
+    /**
+     * Cuántas veces se ha escuchado. Sube a la vez que [lastPlayedAt], y con el
+     * mismo criterio: solo cuenta si ha sonado de verdad un rato, no con cada
+     * salto de "siguiente". Ver `PlayerConnection.scheduleMarkPlayed`.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val playCount: Int = 0,
 )
 
 enum class SongSource {

@@ -69,6 +69,7 @@ Hay que exportar `JAVA_HOME` antes de cualquier comando de Gradle, y `adb` no es
 export JAVA_HOME="F:/Java Open JDK/Hotspot"
 export PATH="$PATH:/f/03_IA/Tools/Android/Sdk/platform-tools"
 ./gradlew installDebug           # compilar e instalar en el móvil conectado
+./gradlew testDebugUnitTest      # los tests de JVM (TrackNaming y el inicio)
 adb logcat -s Muxy               # ver los logs de la app
 ```
 
@@ -165,17 +166,19 @@ Instrucciones para instalarla por primera vez en otro móvil:
 
 ## Estado actual
 
-Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · 4 pipeline de descarga ✅ · 5 pulido ✅ · **6 ajustes + auto-actualización ✅** · 7 (opcional) Spotify.
+Fases: 0 memoria ✅ · 1 andamiaje + diseño ✅ · 2 reproducción ✅ · 3 búsqueda YouTube ✅ · 4 pipeline de descarga ✅ · 5 pulido ✅ · 6 ajustes + auto-actualización ✅ · **7 pantalla de inicio ✅** · 8 (opcional) Spotify.
 
 Cada fase termina con prueba manual en el móvil real por USB antes de pasar a la siguiente. Móvil de pruebas: Samsung Galaxy A55 (`SM_A556B`).
 
 Lo que ya funciona, verificado en dispositivo: librería con Room, reproducción con Media3 en segundo plano con controles en notificación y pantalla de bloqueo, mini-reproductor, búsqueda real en YouTube, el pipeline completo de descarga (resolver → bajar → convertir a M4A → etiquetar con carátula → dar de alta), con avance por etapas en la fila de resultados, notificación de progreso y cancelación, el reproductor a pantalla completa, la carátula en la notificación del sistema, filtrar y ordenar la librería, borrar canciones, las playlists, y la pestaña de ajustes con la actualización desde GitHub Releases.
 
+**Sin verificar en dispositivo: la pantalla de inicio (0.1.16) y los recientes (0.1.15).** Se publicaron sin pasar por el A55 porque el propietario no tenía el móvil a mano para conectarlo; compilan y sus tests de JVM pasan, pero nadie las ha visto funcionando. Lo que más conviene mirar cuando se pueda es la migración 4→5 al abrir por primera vez y que el inicio se pinte con librería real.
+
 La pestaña de **Ajustes está a medias a propósito**: de momento solo lleva "Acerca de" y "Actualizaciones", que era lo que hacía falta para repartir la app. Es el sitio donde irán los ajustes que vayan saliendo.
 
 La fase 5 se hizo en dos tandas, acotadas las dos por el propietario: primero solo el reproductor a pantalla completa, y después la carátula de la notificación, el borrado, el filtro/orden de la librería y las playlists — que las pidió él y no estaban en el plan original.
 
-Sigue sin hacer, sin fecha: `MusicLibrary.pruneMissing` existe pero no lo llama nadie (`sync()` da de alta lo que aparece, pero no da de baja lo que desaparece), y las playlists no se pueden reordenar a mano.
+**Hay tests**, pero solo de JVM (`app/src/test`), y a propósito: cubren lo que tiene reglas de verdad y no necesita dispositivo — `TrackNaming` (la limpieza de títulos de YouTube) y `ui/home/HomeContent.kt` (qué entra en cada sección del inicio y en qué orden). Lo demás —Room, Media3, Compose— se sigue probando a mano en el móvil. Se ejecutan con `./gradlew testDebugUnitTest`.
 
 ### Cómo está montado el reproductor completo
 
@@ -186,9 +189,31 @@ Sigue sin hacer, sin fecha: `MusicLibrary.pruneMissing` existe pero no lo llama 
 - Con duración desconocida el rango del `Slider` sería vacío y revienta, así que en ese caso va con rango de pega y deshabilitado.
 - El vaivén de la carátula **se apaga casi del todo al pausar** en vez de cortarse: a ese tamaño, seguir flotando con la música parada chirría.
 
+### Cómo está montado el inicio
+
+La pestaña **Inicio** copia la estructura de Spotify que pidió el propietario: una rejilla de accesos rápidos arriba y carruseles temáticos debajo (`ui/home/`). Las decisiones que no se ven en el código:
+
+- **No hay álbumes en Muxy y no los va a haber** mientras la fuente sea YouTube: `DownloadWorker` guarda `album = null` siempre, porque un vídeo no trae esa información. Por eso las sugerencias son **por artista**, que es el único agrupador con datos reales (sale del `Artista - Canción` del título o del canal `Artista - Topic`). Una sección de álbumes saldría vacía.
+- Las canciones **sin artista se quedan fuera** de esa sección en vez de agruparse en un "desconocido": son las importadas a mano, y un montón heterogéneo bajo un nombre falso no sugiere nada.
+- **La lógica vive en `HomeContent.kt`, que es Kotlin puro** — sin `Context`, sin recursos, sin Compose — precisamente para poder probar en la JVM lo que tiene reglas. La pantalla solo lo pinta. Si se añade una sección, la regla va ahí y su test al lado.
+- **Las tarjetas no abren pantallas propias: preparan otra pestaña y saltan a ella.** Una playlist abre su detalle en Playlists; "Todas mis descargas" y "Mi Top" van a la Librería cambiándole el orden; un artista va a la Librería con su nombre en el filtro. Así no hay dos sitios donde se pinte lo mismo, y desde ahí se puede seguir afinando a mano. La contrapartida asumida es que el filtro por artista es de texto, así que también casa títulos que contengan ese nombre.
+- **Ninguna sección se pinta vacía.** Un título con nada debajo hace que la app parezca rota, no en construcción. Por lo mismo, el atajo "Mi Top" no aparece hasta que hay algo escuchado.
+- La rejilla se monta **en filas de dos a mano y no con `LazyVerticalGrid`**: una rejilla perezosa dentro de la columna perezosa no tiene alto que medir y revienta en ejecución. Una fila impar deja hueco a la derecha en vez de estirar la última tarjeta al doble.
+- Los artistas van **en círculo** y todo lo demás en nenúfar: distingue "quién" de "qué" sin leer nada. Y como la muesca del nenúfar se mide en grados, las tarjetas de 132 dp la estrechan a 7°.
+
+### Qué cuenta como "escuchada"
+
+Una canción no entra en el historial (ni sube su `playCount`) por empezar a sonar, sino tras **15 segundos de reproducción real** — ver `PlayerConnection.scheduleMarkPlayed`. No es un detalle menor: sin umbral, buscar una canción saltando con "siguiente" dejaba en recientes todas las que se atravesaron de paso, que es justo lo contrario de lo que el usuario quiso decir.
+
+- El tiempo **solo corre mientras suena**: en pausa no acumula, así que dejar la app parada media hora no cuenta.
+- El umbral se recorta a la mitad de la canción, para que las muy cortas puedan llegar a contar alguna vez.
+- Las **playlists sí se marcan al pulsar**, sin umbral: poner una lista a sonar es un gesto deliberado y no pasa por descarte, a diferencia de saltar pistas.
+
 ### Cómo están montadas las playlists y la librería
 
 Las playlists son dos tablas nuevas (`playlists` y `playlist_songs`) y la base pasó a **versión 2 con migración de verdad**, no con `fallbackToDestructiveMigration`: a estas alturas ya hay canciones descargadas en el móvil y perder la librería por estrenar las listas sería un mal negocio. El SQL de `MIGRATION_1_2` tiene que coincidir **carácter a carácter** con lo que genera Room, que lo valida al abrir; la referencia está en `app/schemas/…/2.json` y se comprueba comparando con el `createSql` de ahí.
+
+La base va ya por la **versión 5**, y todas las subidas son migraciones de verdad por el mismo motivo. De la 2 en adelante son columnas sueltas con `ADD COLUMN`, mucho menos arriesgadas: 3 = `gainDb`, 4 = `songs.lastPlayedAt`, 5 = `songs.playCount` + `playlists.lastPlayedAt`. Un detalle que ahorra sustos al añadir columnas: Room **solo compara el valor por defecto si la entidad lo declara** con `@ColumnInfo(defaultValue = …)`. Por eso las columnas nullables pueden llevar `DEFAULT NULL` en el `ALTER` sin declarar nada en Kotlin, pero `playCount` tiene que declarar `"0"` y decir `NOT NULL DEFAULT 0` en el SQL, o la validación al abrir falla.
 
 - Las **claves ajenas borran en cascada**, y de eso depende que borrar una canción la saque de todas las listas sin que nadie tenga que acordarse de limpiar a mano.
 - La clave primaria compuesta de `playlist_songs` impide duplicados dentro de una lista, y el alta va con `IGNORE` para que añadir algo que ya está no sea un error.

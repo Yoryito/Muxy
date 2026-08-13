@@ -41,6 +41,17 @@ class PlaylistRepository(private val dao: PlaylistDao) {
 
     suspend fun delete(id: Long) = withContext(Dispatchers.IO) { dao.delete(id) }
 
+    /**
+     * Marca la lista como escuchada ahora mismo.
+     *
+     * A diferencia de las canciones no hay umbral de tiempo: poner una lista a
+     * sonar es un gesto deliberado (no pasa por descarte, como saltar pistas),
+     * así que cuenta desde el momento en que se pulsa.
+     */
+    suspend fun markPlayed(id: Long) = withContext(Dispatchers.IO) {
+        dao.markPlayed(id, System.currentTimeMillis())
+    }
+
     /** Añade al final. Si la canción ya estaba, no pasa nada. */
     suspend fun addSong(playlistId: Long, songId: Long) = withContext(Dispatchers.IO) {
         dao.insertSong(

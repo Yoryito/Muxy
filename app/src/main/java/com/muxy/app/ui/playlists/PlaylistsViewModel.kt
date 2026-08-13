@@ -108,12 +108,21 @@ class PlaylistsViewModel(
         val queue = openSongs.value
         val index = queue.indexOfFirst { it.id == song.id }.takeIf { it >= 0 } ?: return
         player.play(queue, index)
+        markOpenPlaylistPlayed()
     }
 
     /** El botón de reproducir de la cabecera: la lista entera desde el principio. */
     fun playAll() {
         val queue = openSongs.value
-        if (queue.isNotEmpty()) player.play(queue, 0)
+        if (queue.isNotEmpty()) {
+            player.play(queue, 0)
+            markOpenPlaylistPlayed()
+        }
+    }
+
+    private fun markOpenPlaylistPlayed() {
+        val id = _openId.value ?: return
+        viewModelScope.launch { playlists.markPlayed(id) }
     }
 
     class Factory(

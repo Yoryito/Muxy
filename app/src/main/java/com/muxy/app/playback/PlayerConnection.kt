@@ -81,11 +81,8 @@ class PlayerConnection(private val context: Context, private val library: MusicL
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) = refresh()
 
-        // Cualquier transición cuenta como "escuchada", no solo la que elige el
-        // usuario a mano: saltar con siguiente/anterior o dejar que la cola
-        // avance sola es tan "escuchar" como tocar la canción en la librería.
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            mediaItem?.mediaId?.toLongOrNull()?.let { markPlayed(it) }
+            scheduleMarkPlayed(mediaItem?.mediaId?.toLongOrNull())
         }
     }
 
@@ -94,6 +91,9 @@ class PlayerConnection(private val context: Context, private val library: MusicL
     // pantalla que los puso en marcha se cierre o gire.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var timerJob: Job? = null
+
+    /** La cuenta atrás para dar por escuchada la canción actual. Ver [scheduleMarkPlayed]. */
+    private var markJob: Job? = null
 
     private val _sleepTimer = MutableStateFlow<SleepTimerState>(SleepTimerState.Off)
     val sleepTimer: StateFlow<SleepTimerState> = _sleepTimer.asStateFlow()
@@ -251,8 +251,35 @@ class PlayerConnection(private val context: Context, private val library: MusicL
         )
     }
 
-    private fun markPlayed(songId: Long) {
-        scope.launch { library.markPlayed(songId, System.currentTimeMillis()) }
+    /**
+     * Cuenta la canción como escuchada, pero solo si suena un rato.
+     *
+     * Sin umbral, buscar una canción saltando con "siguiente" dejaba en el
+     * historial todas las que se atravesaron de paso, que es justo lo contrario
+     * de lo que el usuario quiso decir. El tiempo se acumula **solo mientras
+     * suena de verdad**: en pausa no corre, así que dejar la app parada media
+     * hora no cuenta como escucha.
+     *
+     * El umbral se recorta a la mitad de la canción para que las muy cortas
+     * (interludios, intros) puedan llegar a contar alguna vez.
+     */
+    private fun scheduleMarkPlayed(songId: Long?) {
+        markJob?.cancel()
+        if (songId == null) return
+        markJob = scope.launch {
+            val duration = controller?.duration?.takeIf { it > 0 } ?: 0L
+            val threshold = if (duration > 0) {
+                PLAY_THRESHOLD_MS.coerceAtMost(duration / 2)
+            } else {
+                PLAY_THRESHOLD_MS
+            }
+            var listened = 0L
+            while (listened < threshold) {
+                delay(MARK_TICK_MS)
+                if (controller?.isPlaying == true) listened += MARK_TICK_MS
+            }
+            library.markPlayed(songId, System.currentTimeMillis())
+        }
     }
 
     private fun withController(action: MediaController.() -> Unit) {
@@ -262,6 +289,10 @@ class PlayerConnection(private val context: Context, private val library: MusicL
 
     private companion object {
         const val TIMER_TICK_MS = 1_000L
+
+        /** Cuánto tiene que sonar una canción para contar como escuchada. */
+        const val PLAY_THRESHOLD_MS = 15_000L
+        const val MARK_TICK_MS = 1_000L
     }
 }
 

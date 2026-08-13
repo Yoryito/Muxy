@@ -32,6 +32,9 @@ enum class LibrarySort {
     Title,
     Artist,
     Duration,
+
+    /** Lo que más ha sonado. Es a donde lleva el atajo "Mi Top" del inicio. */
+    MostPlayed,
 }
 
 class LibraryViewModel(
@@ -70,10 +73,6 @@ class LibraryViewModel(
         .map { it.isEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
-    /** Lo último escuchado, para la sección de recientes al principio de la pantalla. */
-    val recentlyPlayed: StateFlow<List<Song>> = library.observeRecentlyPlayed()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
     val playback: StateFlow<PlaybackState> = player.state
     val sleepTimer: StateFlow<SleepTimerState> = player.sleepTimer
 
@@ -102,13 +101,6 @@ class LibraryViewModel(
     /** La cola es lo que se está viendo, no la librería entera. */
     fun play(song: Song) {
         val current = songs.value
-        val index = current.indexOfFirst { it.id == song.id }.takeIf { it >= 0 } ?: return
-        player.play(current, index)
-    }
-
-    /** Tocar una canción de "recientes" reproduce esa lista, no la librería filtrada. */
-    fun playRecent(song: Song) {
-        val current = recentlyPlayed.value
         val index = current.indexOfFirst { it.id == song.id }.takeIf { it >= 0 } ?: return
         player.play(current, index)
     }
@@ -217,5 +209,9 @@ private fun LibrarySort.comparator(): Comparator<Song> {
             }
         }
         LibrarySort.Duration -> compareBy<Song> { it.durationMs }
+        // Las que nunca han sonado van al final, y entre las empatadas manda la
+        // más reciente: con pocos datos, el contador solo empata.
+        LibrarySort.MostPlayed -> compareByDescending<Song> { it.playCount }
+            .thenByDescending { it.lastPlayedAt ?: Long.MIN_VALUE }
     }
 }
