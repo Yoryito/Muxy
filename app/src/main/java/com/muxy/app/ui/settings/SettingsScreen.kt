@@ -1,6 +1,8 @@
 package com.muxy.app.ui.settings
 
+import android.text.format.Formatter
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -21,11 +25,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.muxy.app.R
+import com.muxy.app.data.StorageUsage
 import com.muxy.app.ui.components.LilyPadCard
 import com.muxy.app.ui.components.PondButton
+import com.muxy.app.youtube.DownloadQuality
 
 @Composable
 fun SettingsScreen(
@@ -36,6 +43,9 @@ fun SettingsScreen(
     onExportPlaylists: () -> Unit,
     onImportPlaylists: () -> Unit,
     onDismissBackupNotice: () -> Unit,
+    onToggleNormalizeVolume: (Boolean) -> Unit,
+    onToggleAutoplay: (Boolean) -> Unit,
+    onDownloadQualityChange: (DownloadQuality) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
@@ -58,6 +68,20 @@ fun SettingsScreen(
         )
 
         AboutCard(version = state.currentVersion)
+
+        StorageCard(storage = state.storage)
+
+        PlaybackCard(
+            normalizeVolume = state.normalizeVolume,
+            autoplay = state.autoplay,
+            onToggleNormalizeVolume = onToggleNormalizeVolume,
+            onToggleAutoplay = onToggleAutoplay,
+        )
+
+        DownloadQualityCard(
+            quality = state.downloadQuality,
+            onChange = onDownloadQualityChange,
+        )
 
         BackupCard(
             notice = state.backupNotice,
@@ -101,6 +125,171 @@ private fun AboutCard(version: String) {
             )
         }
     }
+}
+
+/**
+ * Con el uso todavía sin calcular no hay nada honesto que enseñar: una barra
+ * vacía se leería como "no ocupas nada" en vez de "esto tarda un pelín".
+ */
+@Composable
+private fun StorageCard(storage: StorageUsage?) {
+    val context = LocalContext.current
+
+    LilyPadCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = stringResource(R.string.settings_storage_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+
+            if (storage == null) {
+                DownloadBar(progress = null)
+            } else {
+                val fraction = if (storage.deviceTotalBytes > 0) {
+                    (storage.deviceUsedBytes.toFloat() / storage.deviceTotalBytes).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+                DownloadBar(progress = fraction)
+
+                val freeBytes = (storage.deviceTotalBytes - storage.deviceUsedBytes).coerceAtLeast(0)
+                Text(
+                    text = stringResource(
+                        R.string.settings_storage_free,
+                        Formatter.formatShortFileSize(context, freeBytes),
+                        Formatter.formatShortFileSize(context, storage.deviceTotalBytes),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.settings_storage_used,
+                        Formatter.formatShortFileSize(context, storage.muxyUsedBytes),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaybackCard(
+    normalizeVolume: Boolean,
+    autoplay: Boolean,
+    onToggleNormalizeVolume: (Boolean) -> Unit,
+    onToggleAutoplay: (Boolean) -> Unit,
+) {
+    LilyPadCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(
+                text = stringResource(R.string.settings_playback_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_normalize_volume),
+                body = stringResource(R.string.settings_normalize_volume_body),
+                checked = normalizeVolume,
+                onCheckedChange = onToggleNormalizeVolume,
+            )
+
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_autoplay),
+                body = stringResource(R.string.settings_autoplay_body),
+                checked = autoplay,
+                onCheckedChange = onToggleAutoplay,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    title: String,
+    body: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun DownloadQualityCard(quality: DownloadQuality, onChange: (DownloadQuality) -> Unit) {
+    LilyPadCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = stringResource(R.string.settings_download_quality_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource(R.string.settings_download_quality_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                DownloadQuality.entries.forEach { option ->
+                    FilterChip(
+                        selected = quality == option,
+                        onClick = { onChange(option) },
+                        label = {
+                            Text(
+                                text = stringResource(option.labelRes()),
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        },
+                        shape = MaterialTheme.shapes.small,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun DownloadQuality.labelRes(): Int = when (this) {
+    DownloadQuality.High -> R.string.settings_download_quality_high
+    DownloadQuality.Medium -> R.string.settings_download_quality_medium
+    DownloadQuality.Low -> R.string.settings_download_quality_low
 }
 
 /**

@@ -21,6 +21,20 @@ data class AudioStream(
 /** Una lista de reproducción de YouTube, ya resuelta a vídeos descargables. */
 data class YoutubePlaylist(val title: String, val items: List<YoutubeResult>)
 
+/**
+ * Cuánto pesar la descarga frente a la calidad del audio.
+ *
+ * [maxBitrateKbps] es un techo, no un objetivo: se coge la pista de mayor
+ * bitrate que no lo supere. Si ninguna pista baja de ese techo (pasa a veces
+ * con vídeos que solo traen una pista en alta calidad), se cae a la de menor
+ * bitrate disponible en vez de fallar la descarga.
+ */
+enum class DownloadQuality(val maxBitrateKbps: Int) {
+    High(Int.MAX_VALUE),
+    Medium(128),
+    Low(64),
+}
+
 /** Metadatos del vídeo, para etiquetar el archivo resultante. */
 data class YoutubeTrack(
     val videoId: String,
@@ -62,8 +76,8 @@ interface YoutubeAudioResolver {
 
     suspend fun search(query: String): List<YoutubeResult>
 
-    /** Resuelve la mejor pista de audio del vídeo. */
-    suspend fun resolve(videoId: String): YoutubeTrack
+    /** Resuelve la mejor pista de audio del vídeo, dentro de [quality]. */
+    suspend fun resolve(videoId: String, quality: DownloadQuality = DownloadQuality.High): YoutubeTrack
 
     /** Resuelve los vídeos de una lista de reproducción, para descargarla entera de golpe. */
     suspend fun resolvePlaylist(url: String): YoutubePlaylist

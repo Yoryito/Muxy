@@ -5,12 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.muxy.app.BuildConfig
+import com.muxy.app.data.MusicLibrary
 import com.muxy.app.data.PlaylistBackup
+import com.muxy.app.data.StorageUsage
+import com.muxy.app.download.DownloadPreferences
+import com.muxy.app.playback.PlaybackPreferences
 import com.muxy.app.update.AvailableUpdate
 import com.muxy.app.update.UpdateCheck
 import com.muxy.app.update.UpdateChecker
 import com.muxy.app.update.UpdateInstaller
 import com.muxy.app.update.UpdatePreferences
+import com.muxy.app.youtube.DownloadQuality
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,6 +72,11 @@ data class SettingsUiState(
     /** El aviso emergente, que sale solo cuando la comprobación fue automática. */
     val promptVisible: Boolean = false,
     val backupNotice: BackupNotice? = null,
+    val normalizeVolume: Boolean = true,
+    val autoplay: Boolean = true,
+    val downloadQuality: DownloadQuality = DownloadQuality.High,
+    /** Null mientras se calcula: recorrer la carpeta de música tarda un pelín. */
+    val storage: StorageUsage? = null,
 )
 
 class SettingsViewModel(
@@ -74,9 +84,19 @@ class SettingsViewModel(
     private val installer: UpdateInstaller,
     private val preferences: UpdatePreferences,
     private val playlistBackup: PlaylistBackup,
+    private val playbackPreferences: PlaybackPreferences,
+    private val downloadPreferences: DownloadPreferences,
+    private val library: MusicLibrary,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(SettingsUiState(autoCheck = preferences.autoCheck.value))
+    private val _state = MutableStateFlow(
+        SettingsUiState(
+            autoCheck = preferences.autoCheck.value,
+            normalizeVolume = playbackPreferences.normalizeVolume.value,
+            autoplay = playbackPreferences.autoplay.value,
+            downloadQuality = downloadPreferences.quality.value,
+        ),
+    )
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
     /**
@@ -109,6 +129,25 @@ class SettingsViewModel(
                 _state.update { it.copy(autoCheck = enabled) }
             }
         }
+        viewModelScope.launch {
+            playbackPreferences.normalizeVolume.collect { enabled ->
+                _state.update { it.copy(normalizeVolume = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            playbackPreferences.autoplay.collect { enabled ->
+                _state.update { it.copy(autoplay = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            downloadPreferences.quality.collect { quality ->
+                _state.update { it.copy(downloadQuality = quality) }
+            }
+        }
+        viewModelScope.launch {
+            val usage = library.storageUsage()
+            _state.update { it.copy(storage = usage) }
+        }
     }
 
     /**
@@ -129,6 +168,12 @@ class SettingsViewModel(
     }
 
     fun setAutoCheck(enabled: Boolean) = preferences.setAutoCheck(enabled)
+
+    fun setNormalizeVolume(enabled: Boolean) = playbackPreferences.setNormalizeVolume(enabled)
+
+    fun setAutoplay(enabled: Boolean) = playbackPreferences.setAutoplay(enabled)
+
+    fun setDownloadQuality(quality: DownloadQuality) = downloadPreferences.setQuality(quality)
 
     /** Los ajustes del sistema donde se concede el permiso de instalar. */
     fun installPermissionIntent() = installer.permissionIntent()
@@ -256,9 +301,20 @@ class SettingsViewModel(
         private val installer: UpdateInstaller,
         private val preferences: UpdatePreferences,
         private val playlistBackup: PlaylistBackup,
+        private val playbackPreferences: PlaybackPreferences,
+        private val downloadPreferences: DownloadPreferences,
+        private val library: MusicLibrary,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            SettingsViewModel(checker, installer, preferences, playlistBackup) as T
+            SettingsViewModel(
+                checker,
+                installer,
+                preferences,
+                playlistBackup,
+                playbackPreferences,
+                downloadPreferences,
+                library,
+            ) as T
     }
 }

@@ -31,10 +31,23 @@ class PlaybackService : MediaSessionService() {
     /** Para leer carátulas sin bloquear el hilo principal del servicio. */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    /**
+     * El servicio no tiene inyección de dependencias (lo construye el
+     * framework), así que crea su propia instancia — ver el comentario de la
+     * clase para por qué eso es seguro.
+     */
+    private val preferences by lazy { PlaybackPreferences(applicationContext) }
+
     private val artworkListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             attachArtwork()
             applyGain(mediaItem)
+            // Solo al terminar sola una canción: un salto a mano ("siguiente")
+            // no debe frenarse por este ajuste, igual que ya pasa con el
+            // temporizador de apagado en modo "fin de canción".
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !preferences.autoplay.value) {
+                mediaSession?.player?.pause()
+            }
         }
     }
 
@@ -66,6 +79,12 @@ class PlaybackService : MediaSessionService() {
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(openApp)
             .build()
+
+        // Si se toca el interruptor de ajustes a media canción, se nota ya:
+        // sin esto habría que esperar a la siguiente pista para que se aplicara.
+        scope.launch {
+            preferences.normalizeVolume.collect { applyGain(mediaSession?.player?.currentMediaItem) }
+        }
     }
 
     /**
@@ -118,9 +137,16 @@ class PlaybackService : MediaSessionService() {
      * el campo se calcula al descargar para que ninguna canción destaque sobre
      * las demás, y [Player.volume] no deja subir por encima de 1.0 lo que suena
      * flojo — solo hay margen para bajar lo que suena fuerte.
+     *
+     * Con la normalización desactivada se ignora el campo y suena tal cual se
+     * descargó.
      */
     private fun applyGain(mediaItem: MediaItem?) {
-        val gainDb = mediaItem?.mediaMetadata?.extras?.getFloat(EXTRA_GAIN_DB) ?: 0f
+        val gainDb = if (preferences.normalizeVolume.value) {
+            mediaItem?.mediaMetadata?.extras?.getFloat(EXTRA_GAIN_DB) ?: 0f
+        } else {
+            0f
+        }
         mediaSession?.player?.volume = 10f.pow(gainDb / 20f)
     }
 

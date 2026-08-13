@@ -6,8 +6,10 @@ import com.muxy.app.data.MusicLibrary
 import com.muxy.app.data.PlaylistBackup
 import com.muxy.app.data.PlaylistRepository
 import com.muxy.app.download.AudioTranscoder
+import com.muxy.app.download.DownloadPreferences
 import com.muxy.app.download.DownloadQueue
 import com.muxy.app.download.HttpFetcher
+import com.muxy.app.playback.PlaybackPreferences
 import com.muxy.app.playback.PlayerConnection
 import com.muxy.app.update.UpdateChecker
 import com.muxy.app.update.UpdateInstaller
@@ -87,4 +89,8 @@ class AppContainer(context: Context) {
     }
 
     val updatePreferences: UpdatePreferences by lazy { UpdatePreferences(appContext) }
+
+    val playbackPreferences: PlaybackPreferences by lazy { PlaybackPreferences(appContext) }
+
+    val downloadPreferences: DownloadPreferences by lazy { DownloadPreferences(appContext) }
 }

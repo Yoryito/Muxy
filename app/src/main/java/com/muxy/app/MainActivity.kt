@@ -107,6 +107,9 @@ class MainActivity : ComponentActivity() {
                             container.updateInstaller,
                             container.updatePreferences,
                             container.playlistBackup,
+                            container.playbackPreferences,
+                            container.downloadPreferences,
+                            container.library,
                         ),
                     ),
                 )
@@ -425,6 +428,9 @@ private fun MuxyApp(
                     onExportPlaylists = settingsViewModel::exportPlaylists,
                     onImportPlaylists = settingsViewModel::requestImport,
                     onDismissBackupNotice = settingsViewModel::dismissBackupNotice,
+                    onToggleNormalizeVolume = settingsViewModel::setNormalizeVolume,
+                    onToggleAutoplay = settingsViewModel::setAutoplay,
+                    onDownloadQualityChange = settingsViewModel::setDownloadQuality,
                     contentPadding = innerPadding,
                 )
             }

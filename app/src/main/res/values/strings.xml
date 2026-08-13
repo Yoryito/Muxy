@@ -11,6 +11,22 @@
     <string name="settings_about_body">Tu música, descargada y guardada en el móvil.</string>
     <string name="settings_version">Versión %1$s</string>
 
+    <string name="settings_storage_title">Almacenamiento</string>
+    <string name="settings_storage_used">Muxy ocupa %1$s</string>
+    <string name="settings_storage_free">%1$s libres de %2$s</string>
+
+    <string name="settings_playback_title">Reproducción</string>
+    <string name="settings_normalize_volume">Normalizar el volumen</string>
+    <string name="settings_normalize_volume_body">Ajusta cada canción para que ninguna suene más fuerte que las demás.</string>
+    <string name="settings_autoplay">Reproducción automática</string>
+    <string name="settings_autoplay_body">Al terminar una canción, sigue con la siguiente de la cola en vez de pararse.</string>
+
+    <string name="settings_download_quality_title">Calidad de descarga</string>
+    <string name="settings_download_quality_body">Más calidad pesa más y gasta más datos al descargar.</string>
+    <string name="settings_download_quality_high">Alta</string>
+    <string name="settings_download_quality_medium">Media</string>
+    <string name="settings_download_quality_low">Baja</string>
+
     <string name="settings_backup_title">Copia de seguridad</string>
     <string name="settings_backup_body">Las playlists solo viven en este móvil. Guarda una copia fuera por si algún día hay que reinstalar.</string>
     <string name="settings_backup_export">Exportar</string>

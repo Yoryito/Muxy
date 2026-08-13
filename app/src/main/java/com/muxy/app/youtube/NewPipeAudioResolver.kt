@@ -46,19 +46,24 @@ class NewPipeAudioResolver : YoutubeAudioResolver {
         }.getOrElse { throw it.asResolveError() }
     }
 
-    override suspend fun resolve(videoId: String): YoutubeTrack = withContext(Dispatchers.IO) {
+    override suspend fun resolve(videoId: String, quality: DownloadQuality): YoutubeTrack = withContext(Dispatchers.IO) {
         ensureInitialised()
         val url = "https://www.youtube.com/watch?v=$videoId"
 
         val info = runCatching { StreamInfo.getInfo(youtube, url) }
             .getOrElse { throw it.asResolveError() }
 
-        val best = info.audioStreams
-            ?.filter { !it.content.isNullOrBlank() }
-            // Mejor calidad disponible: el bitrate es el criterio, y a igualdad
-            // se prefiere m4a porque evita transcodificar.
-            ?.maxWithOrNull(compareBy({ it.averageBitrate }, { if (it.format?.suffix == "m4a") 1 else 0 }))
-            ?: throw ResolveError.NoAudio()
+        val streams = info.audioStreams?.filter { !it.content.isNullOrBlank() }.orEmpty()
+        // Dentro del techo de [quality] se coge la de mayor bitrate, igual que
+        // antes; si ninguna baja de ese techo, mejor la más ligera disponible
+        // que fallar la descarga.
+        val underCap = streams.filter { it.averageBitrate <= quality.maxBitrateKbps }
+        val best = if (underCap.isNotEmpty()) {
+            // A igualdad de bitrate se prefiere m4a porque evita transcodificar.
+            underCap.maxWithOrNull(compareBy({ it.averageBitrate }, { if (it.format?.suffix == "m4a") 1 else 0 }))
+        } else {
+            streams.minByOrNull { it.averageBitrate }
+        } ?: throw ResolveError.NoAudio()
 
         YoutubeTrack(
             videoId = videoId,

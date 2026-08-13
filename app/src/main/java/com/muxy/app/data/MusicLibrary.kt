@@ -11,6 +11,13 @@ import java.io.File
 
 private const val TAG = "Muxy"
 
+/** Ver [MusicLibrary.storageUsage]. */
+data class StorageUsage(
+    val muxyUsedBytes: Long,
+    val deviceUsedBytes: Long,
+    val deviceTotalBytes: Long,
+)
+
 /**
  * La librería local: la base de datos manda, pero los archivos pueden
  * desaparecer por debajo (el usuario borra la caché, restaura el móvil...),
@@ -40,6 +47,24 @@ class MusicLibrary(
         get() = File(context.getExternalFilesDir(null), "staging").apply { mkdirs() }
 
     fun observeSongs(): Flow<List<Song>> = dao.observeAll()
+
+    /**
+     * Cuánto ocupa Muxy y cuánto queda libre en el volumen donde vive
+     * [musicDir]. [deviceUsedBytes]/[deviceTotalBytes] son del dispositivo
+     * entero (lo que reserva Android para todas las apps), no solo de Muxy:
+     * es lo que responde a "cuánto me queda" mejor que solo el peso de la
+     * música descargada.
+     */
+    suspend fun storageUsage(): StorageUsage = withContext(Dispatchers.IO) {
+        val muxyBytes = (dirFileSizes(musicDir) + dirFileSizes(coverDir))
+        val totalBytes = musicDir.totalSpace
+        val freeBytes = musicDir.usableSpace
+        StorageUsage(
+            muxyUsedBytes = muxyBytes,
+            deviceUsedBytes = (totalBytes - freeBytes).coerceAtLeast(0),
+            deviceTotalBytes = totalBytes,
+        )
+    }
 
     /** Las últimas [limit] canciones escuchadas, para la sección de recientes del inicio. */
     fun observeRecentlyPlayed(limit: Int = 15): Flow<List<Song>> = dao.observeRecentlyPlayed(limit)
@@ -102,6 +127,9 @@ class MusicLibrary(
     suspend fun pruneMissing(songs: List<Song>) = withContext(Dispatchers.IO) {
         songs.filterNot { File(it.filePath).exists() }.forEach { dao.delete(it) }
     }
+
+    private fun dirFileSizes(dir: File): Long =
+        dir.listFiles()?.filter { it.isFile }?.sumOf { it.length() } ?: 0L
 
     private fun readMetadata(file: File): Song {
         val retriever = MediaMetadataRetriever()

@@ -62,7 +62,7 @@ class DownloadWorker(
 
         return try {
             report(searchTitle, DownloadStage.Resolving, null)
-            val track = container.youtube.resolve(videoId)
+            val track = container.youtube.resolve(videoId, container.downloadPreferences.quality.value)
 
             val names = TrackNaming.parse(track.title, track.uploader)
             val displayTitle = names.title.ifBlank { searchTitle }
