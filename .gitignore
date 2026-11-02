@@ -12,3 +12,9 @@ captures/
 *.keystore
 !debug.keystore
 keystore.properties
+
+# pc/ (script de descarga para PC)
+pc/__pycache__/
+pc/descargas/
+pc/_test_out/
+pc/*.egg-info/
