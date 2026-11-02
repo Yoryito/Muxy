@@ -18,3 +18,4 @@ pc/__pycache__/
 pc/descargas/
 pc/_test_out/
 pc/*.egg-info/
+pc/.venv/

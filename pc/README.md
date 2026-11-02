@@ -12,10 +12,18 @@ ToS y es un compromiso aceptado a propósito.
 
 Necesitas Python 3.10+ y `ffmpeg` en el PATH (o indicado a yt-dlp).
 
+Las dependencias van en un entorno virtual **dentro de esta carpeta**, para
+no tocar el Python global de la máquina (puede haber otros scripts, como
+automatizaciones, que dependan de versiones concretas de paquetes):
+
 ```bash
 cd pc
-py -m pip install -r requirements.txt
+py -m venv .venv
+./.venv/Scripts/python.exe -m pip install -r requirements.txt
 ```
+
+A partir de ahí, usa siempre `./.venv/Scripts/python.exe` en vez de `py` o
+`python` para ejecutar el script (ver más abajo).
 
 ## Spotify (opcional)
 
@@ -37,7 +45,7 @@ export SPOTIFY_CLIENT_SECRET="..."
 ## Uso
 
 ```bash
-py muxy_dl.py "Daft Punk One More Time"
+./.venv/Scripts/python.exe muxy_dl.py "Daft Punk One More Time"
 ```
 
 Lista los resultados (marcando `[EXTENDED]` los que detecta como extended
