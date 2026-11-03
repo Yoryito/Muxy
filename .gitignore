@@ -19,3 +19,7 @@ pc/descargas/
 pc/_test_out/
 pc/*.egg-info/
 pc/.venv/
+pc/build/
+pc/dist/
+pc/*.spec
+pc/gui_config.json
