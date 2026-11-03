@@ -69,12 +69,33 @@ Para no tener que lanzarlo con Python cada vez, se puede empaquetar como un
 
 ```bash
 ./.venv/Scripts/python.exe -m pip install pyinstaller
-./.venv/Scripts/python.exe -m PyInstaller --noconfirm --onefile --windowed --name muxy-pc muxy_gui.py
+./.venv/Scripts/python.exe -m PyInstaller --noconfirm --onefile --windowed --name muxy-pc --icon assets/muxy-pc.ico muxy_gui.py
 ```
 
 El resultado queda en `dist/muxy-pc.exe` (no se commitea, son ~30 MB — se
 regenera cuando haga falta). Sigue necesitando `ffmpeg`/`ffplay` instalados
 en la máquina; no los empaqueta.
+
+El icono (`assets/muxy-pc.ico`) es el mismo dibujo que el icono de la app
+de Android (`ic_launcher_foreground.xml`), redibujado con Pillow en
+`assets/make_icon.py` porque esta máquina no tiene `cairo` instalado para
+rasterizar el SVG directamente. Para regenerarlo tras tocar `icon.svg`:
+
+```bash
+./.venv/Scripts/python.exe -m pip install pillow
+./.venv/Scripts/python.exe assets/make_icon.py
+```
+
+### Acceso directo en el escritorio
+
+```powershell
+$WshShell = New-Object -ComObject WScript.Shell
+$shortcut = $WshShell.CreateShortcut("$([Environment]::GetFolderPath('Desktop'))\Muxy PC.lnk")
+$shortcut.TargetPath = "<ruta completa>\pc\dist\muxy-pc.exe"
+$shortcut.WorkingDirectory = "<ruta completa>\pc"
+$shortcut.IconLocation = "<ruta completa>\pc\assets\muxy-pc.ico"
+$shortcut.Save()
+```
 
 ## Uso: línea de comandos
 

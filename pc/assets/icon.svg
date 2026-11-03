@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <rect width="108" height="108" rx="24" fill="#EADCC2" />
+  <g transform="translate(18,20)">
+    <!-- Nenúfar como base -->
+    <path fill="#4A6B3D" d="M36,64 C21,64 10,58 10,51 C10,44 21,38 36,38 C51,38 62,44 62,51 C62,58 51,64 36,64 Z" />
+    <path fill="#4F8B87" fill-opacity="0.35" d="M36,51 L58,44 L62,51 Z" />
+
+    <!-- Cabeza de la rana -->
+    <path fill="#6E9159" d="M36,8 C22,8 13,20 13,33 C13,43 23,48 36,48 C49,48 59,43 59,33 C59,20 50,8 36,8 Z" />
+
+    <!-- Ojos -->
+    <path fill="#6E9159" d="M25,12 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0 Z" />
+    <path fill="#6E9159" d="M47,12 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0 Z" />
+    <path fill="#FFFCF4" d="M25,12 m-6.5,0 a6.5,6.5 0 1,0 13,0 a6.5,6.5 0 1,0 -13,0 Z" />
+    <path fill="#FFFCF4" d="M47,12 m-6.5,0 a6.5,6.5 0 1,0 13,0 a6.5,6.5 0 1,0 -13,0 Z" />
+    <path fill="#1F2C1C" d="M25.5,13 m-3.6,0 a3.6,3.6 0 1,0 7.2,0 a3.6,3.6 0 1,0 -7.2,0 Z" />
+    <path fill="#1F2C1C" d="M47.5,13 m-3.6,0 a3.6,3.6 0 1,0 7.2,0 a3.6,3.6 0 1,0 -7.2,0 Z" />
+
+    <!-- Mofletes -->
+    <path fill="#DE8B85" fill-opacity="0.55" d="M19,29 m-4.5,0 a4.5,3.2 0 1,0 9,0 a4.5,3.2 0 1,0 -9,0 Z" />
+    <path fill="#DE8B85" fill-opacity="0.55" d="M53,29 m-4.5,0 a4.5,3.2 0 1,0 9,0 a4.5,3.2 0 1,0 -9,0 Z" />
+
+    <!-- Sonrisa -->
+    <path stroke="#1F2C1C" stroke-width="2.4" stroke-opacity="0.75" stroke-linecap="round" fill="none" d="M29,28 C32,32 40,32 43,28" />
+  </g>
+</svg>
